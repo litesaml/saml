@@ -1,5 +1,5 @@
 {
-  "name": "litesaml/wrapper",
+  "name": "litesaml/saml",
   "description": "SAML 2.0 PHP library",
   "keywords": ["SAML 2.0", "PHP", "library", "lightSAML", "Single SignOn", "Single Logout"],
   "minimum-stability": "stable",
@@ -12,7 +12,7 @@
   ],
   "require": {
     "php": "^8.2",
-    "bluestone/dto": "^1.1.1",
+    "bluestone/dto": "^1.1",
     "litesaml/lightsaml": "^4.2",
     "symfony/http-foundation": "^6.4"
   },
