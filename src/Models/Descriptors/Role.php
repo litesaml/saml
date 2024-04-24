@@ -7,4 +7,6 @@ use Bluestone\DataTransferObject\DataTransferObject;
 abstract class Role extends DataTransferObject
 {
     public string $entityId;
+
+    public ?Certificate $signing;
 }

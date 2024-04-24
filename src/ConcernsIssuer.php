@@ -5,6 +5,8 @@ namespace Litesaml;
 use DateTime;
 use LightSaml\Binding\BindingFactory;
 use LightSaml\Context\Profile\MessageContext;
+use LightSaml\Credential\KeyHelper;
+use LightSaml\Credential\X509Certificate;
 use LightSaml\Helper;
 use LightSaml\Model\Assertion\Assertion;
 use LightSaml\Model\Assertion\Attribute;
@@ -17,11 +19,13 @@ use LightSaml\Model\Protocol\Response as SamlAuthnResponse;
 use LightSaml\Model\Protocol\SamlMessage;
 use LightSaml\Model\Protocol\Status;
 use LightSaml\Model\Protocol\StatusCode;
+use LightSaml\Model\XmlDSig\SignatureWriter;
 use LightSaml\SamlConstants;
 use Litesaml\Models\Descriptors\Endpoint;
 use Litesaml\Models\Descriptors\Idp;
 use Litesaml\Models\Descriptors\Role;
 use Litesaml\Models\Descriptors\Sp;
+use Litesaml\Models\Messages\Message;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 trait ConcernsIssuer
@@ -36,7 +40,7 @@ trait ConcernsIssuer
             ->setDestination($recipient->sso->location)
             ->setIssuer(new Issuer($issuer->entityId));
 
-        return $this->send($authnRequest, $recipient->sso);
+        return $this->send($authnRequest, $issuer, $recipient->sso);
     }
 
     /**
@@ -75,7 +79,7 @@ trait ConcernsIssuer
             $response->addAssertion($assertion);
         }
 
-        return $this->send($response, $recipient->acs);
+        return $this->send($response, $issuer, $recipient->acs);
     }
 
     public function sendLogoutRequest(Role $issuer, Role $recipient): SymfonyResponse
@@ -86,7 +90,7 @@ trait ConcernsIssuer
             ->setDestination($recipient->slo->location)
             ->setIssuer(new Issuer($issuer->entityId));
 
-        return $this->send($logoutRequest, $recipient->slo);
+        return $this->send($logoutRequest, $issuer, $recipient->slo);
     }
 
     public function sendLogoutResponse(Role $issuer, Role $recipient): SymfonyResponse
@@ -102,16 +106,28 @@ trait ConcernsIssuer
             ->setDestination($recipient->slo->location)
             ->setIssuer(new Issuer($issuer->entityId));
 
-        return $this->send($response, $recipient->slo);
+        return $this->send($response, $issuer, $recipient->slo);
     }
 
-    private function send(SamlMessage $message, Endpoint $endpoint): SymfonyResponse
+    private function send(SamlMessage $message, Role $issuer, Endpoint $endpoint): SymfonyResponse
     {
         $messageContext = new MessageContext();
         $messageContext->setMessage($message);
 
         $bindingFactory = new BindingFactory();
         $binding = $bindingFactory->create($endpoint->getBinding());
+
+        if ($issuer->signing) {
+            $certificate = (new X509Certificate())->loadPem($issuer->signing->publicKey->toPem());
+            $privateKey = KeyHelper::createPrivateKey(
+                $issuer->signing->privateKey->toPem(),
+                $issuer->signing->privateKey->passphrase
+            );
+
+            $message->setSignature(
+                new SignatureWriter($certificate, $privateKey)
+            );
+        }
 
         return $binding->send($messageContext);
     }

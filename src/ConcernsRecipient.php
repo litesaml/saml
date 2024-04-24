@@ -2,15 +2,20 @@
 
 namespace Litesaml;
 
+use Exception;
+use LightSaml\Credential\KeyHelper;
+use LightSaml\Credential\X509Certificate;
 use LightSaml\Model\Protocol as LightSaml;
 use LightSaml\Binding\BindingFactory;
 use LightSaml\Context\Profile\MessageContext;
 use Litesaml\Exceptions\SamlException;
+use Litesaml\Models\Descriptors\Role;
 use Litesaml\Models\Messages\Attribute;
 use Litesaml\Models\Messages\AuthnRequest;
 use Litesaml\Models\Messages\AuthnResponse;
 use Litesaml\Models\Messages\LogoutRequest;
 use Litesaml\Models\Messages\LogoutResponse;
+use Litesaml\Models\Messages\Message;
 use Symfony\Component\HttpFoundation\Request as SymfonyRequest;
 
 trait ConcernsRecipient
@@ -79,10 +84,35 @@ trait ConcernsRecipient
             throw new SamlException('Wrong request received');
         }
 
+        /** @var \LightSaml\Model\XmlDSig\SignatureXmlReader $signatureReader */
+        $signatureReader = $message->getSignature();
+
         return new LogoutResponse(
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
+            signature: $signatureReader?->getSignature()
         );
+    }
+
+    public function validateSignature(Message $message, Role $issuer): bool
+    {
+        if (! $message->signature || ! $issuer->signing) {
+            return false;
+        }
+
+        try {
+            $key = KeyHelper::createPublicKey(
+                (new X509Certificate())->loadPem($issuer->signing->publicKey->toPem())
+            );
+
+            if (! $message->signature->verify($key)) {
+                return false;
+            }
+
+            return true;
+        } catch (Exception $e) {
+            return false;
+        }
     }
 
     private function unpack(SymfonyRequest $request): LightSaml\SamlMessage
