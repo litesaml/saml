@@ -8,6 +8,7 @@ use LightSaml\Credential\X509Certificate;
 use LightSaml\Model\Protocol as LightSaml;
 use LightSaml\Binding\BindingFactory;
 use LightSaml\Context\Profile\MessageContext;
+use LightSaml\Model\XmlDSig\SignatureStringReader;
 use Litesaml\Exceptions\SamlException;
 use Litesaml\Models\Descriptors\Role;
 use Litesaml\Models\Messages\Attribute;
@@ -16,6 +17,7 @@ use Litesaml\Models\Messages\AuthnResponse;
 use Litesaml\Models\Messages\LogoutRequest;
 use Litesaml\Models\Messages\LogoutResponse;
 use Litesaml\Models\Messages\Message;
+use Litesaml\Models\Messages\Signature;
 use Symfony\Component\HttpFoundation\Request as SymfonyRequest;
 
 trait ConcernsRecipient
@@ -44,7 +46,8 @@ trait ConcernsRecipient
         return new AuthnResponse(
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
-            attributes: $attributes
+            attributes: $attributes,
+            signature: $this->extractSignature($message),
         );
     }
 
@@ -59,6 +62,7 @@ trait ConcernsRecipient
         return new AuthnRequest(
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
+            signature: $this->extractSignature($message),
         );
     }
 
@@ -73,6 +77,7 @@ trait ConcernsRecipient
         return new LogoutRequest(
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
+            signature: $this->extractSignature($message),
         );
     }
 
@@ -84,13 +89,10 @@ trait ConcernsRecipient
             throw new SamlException('Wrong request received');
         }
 
-        /** @var \LightSaml\Model\XmlDSig\SignatureXmlReader $signatureReader */
-        $signatureReader = $message->getSignature();
-
         return new LogoutResponse(
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
-            signature: $signatureReader?->getSignature()
+            signature: $this->extractSignature($message),
         );
     }
 
@@ -105,7 +107,13 @@ trait ConcernsRecipient
                 (new X509Certificate())->loadPem($issuer->signing->publicKey->toPem())
             );
 
-            if (! $message->signature->verify($key)) {
+            $signatureReader = new SignatureStringReader(
+                $message->signature->value,
+                $message->signature->algorithm,
+                $message->signature->data,
+            );
+
+            if (! $signatureReader->validate($key)) {
                 return false;
             }
 
@@ -130,5 +138,21 @@ trait ConcernsRecipient
         }
 
         return $message;
+    }
+
+    private function extractSignature(LightSaml\SamlMessage $message): ?Signature
+    {
+        /** @var \LightSaml\Model\XmlDSig\SignatureStringReader $signatureReader */
+        $signatureReader = $message->getSignature();
+
+        if (! $signatureReader) {
+            return null;
+        }
+
+        return new Signature(
+            value: $signatureReader->getSignature(),
+            algorithm: $signatureReader->getAlgorithm(),
+            data: $signatureReader->getData()
+        );
     }
 }

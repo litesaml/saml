@@ -11,5 +11,5 @@ abstract class Message extends DataTransferObject
 
     public string $issuer;
 
-    public ?XMLSecurityDSig $signature;
+    public ?Signature $signature;
 }
