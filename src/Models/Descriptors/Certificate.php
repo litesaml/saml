@@ -7,5 +7,5 @@ use Bluestone\DataTransferObject\DataTransferObject;
 class Certificate extends DataTransferObject
 {
     public PublicKey $publicKey;
-    public PrivateKey $privateKey;
+    public ?PrivateKey $privateKey;
 }
