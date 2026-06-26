@@ -2,9 +2,14 @@
 
 namespace Litesaml\Models\Descriptors;
 
-class Idp extends Role
+readonly class Idp extends Role
 {
-    public Endpoint $sso;
-
-    public Endpoint $slo;
+    public function __construct(
+        string $entityId,
+        public Endpoint $sso,
+        public Endpoint $slo,
+        ?Certificate $signing = null,
+    ) {
+        parent::__construct($entityId, $signing);
+    }
 }

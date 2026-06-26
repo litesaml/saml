@@ -2,9 +2,14 @@
 
 namespace Litesaml\Models\Descriptors;
 
-class PrivateKey extends Key
+readonly class PrivateKey extends Key
 {
-    public string $passphrase = '';
+    public function __construct(
+        string $value,
+        public string $passphrase = '',
+    ) {
+        parent::__construct($value);
+    }
 
     protected function getHeaders(): array
     {

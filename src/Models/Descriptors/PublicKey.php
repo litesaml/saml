@@ -2,7 +2,7 @@
 
 namespace Litesaml\Models\Descriptors;
 
-class PublicKey extends Key
+readonly class PublicKey extends Key
 {
     protected function getHeaders(): array
     {

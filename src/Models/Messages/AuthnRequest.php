@@ -2,6 +2,4 @@
 
 namespace Litesaml\Models\Messages;
 
-class AuthnRequest extends Message
-{
-}
+readonly class AuthnRequest extends Message {}

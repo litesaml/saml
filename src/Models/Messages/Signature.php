@@ -2,11 +2,11 @@
 
 namespace Litesaml\Models\Messages;
 
-use Bluestone\DataTransferObject\DataTransferObject;
-
-class Signature extends DataTransferObject
+readonly class Signature
 {
-    public string $value;
-    public string $algorithm;
-    public string $data;
+    public function __construct(
+        public string $value,
+        public string $algorithm,
+        public string $data,
+    ) {}
 }

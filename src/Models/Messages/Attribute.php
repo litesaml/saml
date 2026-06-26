@@ -2,11 +2,10 @@
 
 namespace Litesaml\Models\Messages;
 
-use Bluestone\DataTransferObject\DataTransferObject;
-
-class Attribute extends DataTransferObject
+readonly class Attribute
 {
-    public string $name;
-
-    public mixed $value;
+    public function __construct(
+        public string $name,
+        public mixed $value,
+    ) {}
 }

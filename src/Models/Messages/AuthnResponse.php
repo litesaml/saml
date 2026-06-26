@@ -2,23 +2,28 @@
 
 namespace Litesaml\Models\Messages;
 
-use Bluestone\DataTransferObject\Attributes\CastWith;
-use Bluestone\DataTransferObject\Casters\ArrayCaster;
-
-class AuthnResponse extends Message
+readonly class AuthnResponse extends Message
 {
-    #[CastWith(ArrayCaster::class, type: Attribute::class)]
-    public array $attributes;
+    /**
+     * @param Attribute[] $attributes
+     */
+    public function __construct(
+        string $id,
+        string $issuer,
+        ?Signature $signature,
+        public array $attributes,
+    ) {
+        parent::__construct($id, $issuer, $signature);
+    }
 
     public function getAttributeByName(string $name): ?Attribute
     {
-        $attributes = array_filter(
-            $this->attributes,
-            function (Attribute $attr) use ($name) {
-                return $attr->name === $name;
+        foreach ($this->attributes as $attribute) {
+            if ($attribute->name === $name) {
+                return $attribute;
             }
-        );
+        }
 
-        return array_shift($attributes);
+        return null;
     }
 }

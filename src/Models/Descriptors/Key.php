@@ -2,11 +2,9 @@
 
 namespace Litesaml\Models\Descriptors;
 
-use Bluestone\DataTransferObject\DataTransferObject;
-
-abstract class Key extends DataTransferObject
+abstract readonly class Key
 {
-    public string $value;
+    public function __construct(public string $value) {}
 
     abstract protected function getHeaders(): array;
 

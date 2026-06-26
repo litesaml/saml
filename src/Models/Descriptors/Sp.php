@@ -2,9 +2,14 @@
 
 namespace Litesaml\Models\Descriptors;
 
-class Sp extends Role
+readonly class Sp extends Role
 {
-    public Endpoint $acs;
-
-    public Endpoint $slo;
+    public function __construct(
+        string $entityId,
+        public Endpoint $acs,
+        public Endpoint $slo,
+        ?Certificate $signing = null,
+    ) {
+        parent::__construct($entityId, $signing);
+    }
 }

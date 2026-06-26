@@ -2,10 +2,10 @@
 
 namespace Litesaml\Models\Descriptors;
 
-use Bluestone\DataTransferObject\DataTransferObject;
-
-class Certificate extends DataTransferObject
+readonly class Certificate
 {
-    public PublicKey $publicKey;
-    public ?PrivateKey $privateKey;
+    public function __construct(
+        public PublicKey $publicKey,
+        public ?PrivateKey $privateKey = null,
+    ) {}
 }

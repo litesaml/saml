@@ -2,15 +2,15 @@
 
 namespace Litesaml\Models\Descriptors;
 
-use Bluestone\DataTransferObject\DataTransferObject;
 use LightSaml\SamlConstants;
 use Litesaml\Enums\BindingType;
 
-class Endpoint extends DataTransferObject
+readonly class Endpoint
 {
-    public string $location;
-
-    public BindingType $binding;
+    public function __construct(
+        public string $location,
+        public BindingType $binding,
+    ) {}
 
     public function getBinding(): string
     {

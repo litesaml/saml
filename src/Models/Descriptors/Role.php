@@ -2,11 +2,10 @@
 
 namespace Litesaml\Models\Descriptors;
 
-use Bluestone\DataTransferObject\DataTransferObject;
-
-abstract class Role extends DataTransferObject
+abstract readonly class Role
 {
-    public string $entityId;
-
-    public ?Certificate $signing;
+    public function __construct(
+        public string $entityId,
+        public ?Certificate $signing = null,
+    ) {}
 }

@@ -12,7 +12,6 @@
   ],
   "require": {
     "php": "^8.2",
-    "bluestone/dto": "^1.1",
     "litesaml/lightsaml": "^4.2",
     "symfony/http-foundation": "^6.4"
   },
