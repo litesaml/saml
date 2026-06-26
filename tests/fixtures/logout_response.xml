@@ -1,0 +1,2 @@
+<?xml version="1.0"?>
+<samlp:LogoutResponse xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" ID="LOGOUT-RESPONSE-ID" Version="2.0" IssueInstant="2026-01-01T00:00:00Z" Destination="https://sp.localhost/slo"><saml:Issuer>https://idp.localhost</saml:Issuer><samlp:Status><samlp:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success"/></samlp:Status></samlp:LogoutResponse>
