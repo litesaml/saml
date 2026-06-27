@@ -6,11 +6,13 @@ use Litesaml\Enums\BindingType;
 use Litesaml\Enums\Status;
 use Litesaml\Exceptions\SamlException;
 use Litesaml\Models\Descriptors\Idp;
+use Litesaml\Models\Descriptors\PublicKey;
 use Litesaml\Models\Messages\Attribute;
 use Litesaml\Models\Messages\AuthnRequest;
 use Litesaml\Models\Messages\AuthnResponse;
 use Litesaml\Models\Messages\LogoutRequest;
 use Litesaml\Models\Messages\LogoutResponse;
+use Litesaml\Models\Messages\Signature;
 use Litesaml\ServiceProviderWrapper;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -79,6 +81,34 @@ class ServiceProviderWrapperTest extends TestCase
         $this->expectException(SamlException::class);
 
         ServiceProviderWrapper::parseMetadata('<md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata" entityID="x"/>');
+    }
+
+    #[Test]
+    public function parse_metadata_throws_without_sso_service(): void
+    {
+        $this->expectException(SamlException::class);
+        $this->expectExceptionMessage('No SSO service found in IdP metadata');
+
+        ServiceProviderWrapper::parseMetadata(
+            '<md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata" entityID="x">'
+            . '<md:IDPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol"/>'
+            . '</md:EntityDescriptor>'
+        );
+    }
+
+    #[Test]
+    public function parse_metadata_throws_without_slo_service(): void
+    {
+        $this->expectException(SamlException::class);
+        $this->expectExceptionMessage('No SLO service found in IdP metadata');
+
+        ServiceProviderWrapper::parseMetadata(
+            '<md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata" entityID="x">'
+            . '<md:IDPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">'
+            . '<md:SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" Location="https://idp.localhost/sso"/>'
+            . '</md:IDPSSODescriptor>'
+            . '</md:EntityDescriptor>'
+        );
     }
 
     #[Test]
@@ -156,6 +186,15 @@ class ServiceProviderWrapperTest extends TestCase
         $request = $this->makePostRequest('/acs', ['SAMLResponse' => $this->fixture('logout_response', deflate: false)]);
 
         $this->makeSpWrapper()->handleAuthnResponse($request);
+    }
+
+    #[Test]
+    public function handle_authn_request_throws_on_wrong_message_type(): void
+    {
+        $this->expectException(SamlException::class);
+
+        $request = $this->makeGetRequest('/sso', ['SAMLRequest' => $this->fixture('logout_request')]);
+        $this->makeSpWrapper()->handleAuthnRequest($request);
     }
 
     #[Test]
@@ -317,6 +356,24 @@ class ServiceProviderWrapperTest extends TestCase
         $message = $this->makeSpWrapper()->handleAuthnRequest($request, validate: true, issuer: $this->makeSpWithSigning());
 
         $this->assertInstanceOf(AuthnRequest::class, $message);
+    }
+
+    #[Test]
+    public function handle_logout_request_throws_on_wrong_message_type(): void
+    {
+        $this->expectException(SamlException::class);
+
+        $request = $this->makeGetRequest('/slo', ['SAMLRequest' => $this->fixture('authn_request')]);
+        $this->makeSpWrapper()->handleLogoutRequest($request);
+    }
+
+    #[Test]
+    public function handle_logout_response_throws_on_wrong_message_type(): void
+    {
+        $this->expectException(SamlException::class);
+
+        $request = $this->makeGetRequest('/slo', ['SAMLRequest' => $this->fixture('authn_request')]);
+        $this->makeSpWrapper()->handleLogoutResponse($request);
     }
 
     #[Test]

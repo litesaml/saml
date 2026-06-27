@@ -254,6 +254,24 @@ class IdentityProviderWrapperTest extends TestCase
     }
 
     #[Test]
+    public function handle_logout_request_throws_on_wrong_message_type(): void
+    {
+        $this->expectException(SamlException::class);
+
+        $request = $this->makeGetRequest('/slo', ['SAMLRequest' => $this->fixture('authn_request')]);
+        $this->makeIdpWrapper()->handleLogoutRequest($request);
+    }
+
+    #[Test]
+    public function handle_logout_response_throws_on_wrong_message_type(): void
+    {
+        $this->expectException(SamlException::class);
+
+        $request = $this->makeGetRequest('/slo', ['SAMLRequest' => $this->fixture('authn_request')]);
+        $this->makeIdpWrapper()->handleLogoutResponse($request);
+    }
+
+    #[Test]
     public function handle_logout_response_validates_signature_when_requested(): void
     {
         $spWithSigning = $this->makeSpWrapper($this->makeSpWithSigning());
