@@ -6,13 +6,11 @@ use Litesaml\Enums\BindingType;
 use Litesaml\Enums\Status;
 use Litesaml\Exceptions\SamlException;
 use Litesaml\Models\Descriptors\Idp;
-use Litesaml\Models\Descriptors\PublicKey;
 use Litesaml\Models\Messages\Attribute;
 use Litesaml\Models\Messages\AuthnRequest;
 use Litesaml\Models\Messages\AuthnResponse;
 use Litesaml\Models\Messages\LogoutRequest;
 use Litesaml\Models\Messages\LogoutResponse;
-use Litesaml\Models\Messages\Signature;
 use Litesaml\ServiceProviderWrapper;
 use PHPUnit\Framework\Attributes\Test;
 
