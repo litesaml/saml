@@ -3,12 +3,16 @@
 namespace Tests;
 
 use Litesaml\Enums\BindingType;
+use Litesaml\IdentityProviderWrapper;
 use Litesaml\Models\Descriptors\Certificate;
 use Litesaml\Models\Descriptors\Endpoint;
 use Litesaml\Models\Descriptors\Idp;
 use Litesaml\Models\Descriptors\PrivateKey;
 use Litesaml\Models\Descriptors\PublicKey;
 use Litesaml\Models\Descriptors\Sp;
+use Litesaml\ServiceProviderWrapper;
+use Nyholm\Psr7\Factory\Psr17Factory;
+use Psr\Http\Message\ServerRequestInterface;
 
 abstract class TestCase extends \PHPUnit\Framework\TestCase
 {
@@ -17,6 +21,21 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
         $xml = file_get_contents(__DIR__ . '/fixtures/' . $name . '.xml');
 
         return $deflate ? base64_encode(gzdeflate($xml)) : base64_encode($xml);
+    }
+
+    protected function makeFactory(): Psr17Factory
+    {
+        return new Psr17Factory();
+    }
+
+    protected function makeGetRequest(string $uri, array $params): ServerRequestInterface
+    {
+        return $this->makeFactory()->createServerRequest('GET', $uri)->withQueryParams($params);
+    }
+
+    protected function makePostRequest(string $uri, array $params): ServerRequestInterface
+    {
+        return $this->makeFactory()->createServerRequest('POST', $uri)->withParsedBody($params);
     }
 
     protected function makeSp(): Sp
@@ -48,5 +67,19 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
             sso: new Endpoint('https://idp.localhost/sso', BindingType::REDIRECT),
             slo: new Endpoint('https://idp.localhost/slo', BindingType::REDIRECT),
         );
+    }
+
+    protected function makeIdpWrapper(?Idp $idp = null): IdentityProviderWrapper
+    {
+        $f = $this->makeFactory();
+
+        return new IdentityProviderWrapper($idp ?? $this->makeIdp(), $f, $f);
+    }
+
+    protected function makeSpWrapper(?Sp $sp = null): ServiceProviderWrapper
+    {
+        $f = $this->makeFactory();
+
+        return new ServiceProviderWrapper($sp ?? $this->makeSp(), $f, $f);
     }
 }

@@ -15,17 +15,24 @@ use Litesaml\Models\Descriptors\Endpoint;
 use Litesaml\Models\Descriptors\Role;
 use Litesaml\Models\Messages\Message;
 use Litesaml\Models\Messages\Signature;
-use Symfony\Component\HttpFoundation\Request as SymfonyRequest;
-use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
+use Psr\Http\Message\ResponseFactoryInterface;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Message\StreamFactoryInterface;
 
 final class MessageHandler
 {
-    public static function send(SamlMessage $message, Role $issuer, Endpoint $endpoint): SymfonyResponse
-    {
+    public static function send(
+        SamlMessage $message,
+        Role $issuer,
+        Endpoint $endpoint,
+        ResponseFactoryInterface $responseFactory,
+        StreamFactoryInterface $streamFactory,
+    ): ResponseInterface {
         $messageContext = new MessageContext();
         $messageContext->setMessage($message);
 
-        $bindingFactory = new BindingFactory();
+        $bindingFactory = new BindingFactory(responseFactory: $responseFactory, streamFactory: $streamFactory);
         $binding = $bindingFactory->create($endpoint->getBinding());
 
         if ($issuer->signing) {
@@ -41,7 +48,7 @@ final class MessageHandler
         return $binding->send($messageContext);
     }
 
-    public static function unpack(SymfonyRequest $request): SamlMessage
+    public static function unpack(ServerRequestInterface $request): SamlMessage
     {
         $bindingFactory = new BindingFactory();
         $binding = $bindingFactory->getBindingByRequest($request);

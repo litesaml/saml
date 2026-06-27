@@ -26,17 +26,23 @@ use Litesaml\Models\Messages\LogoutRequest;
 use Litesaml\Models\Messages\LogoutResponse;
 use Litesaml\Models\Messages\Message;
 use Litesaml\Support\MessageHandler;
-use Symfony\Component\HttpFoundation\Request as SymfonyRequest;
-use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
+use Psr\Http\Message\ResponseFactoryInterface;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Message\StreamFactoryInterface;
 
 class IdentityProviderWrapper
 {
-    public function __construct(private Idp $idp) {}
+    public function __construct(
+        private Idp $idp,
+        private ResponseFactoryInterface $responseFactory,
+        private StreamFactoryInterface $streamFactory,
+    ) {}
 
     /**
      * @param Attribute[] $attributes
      */
-    public function sendAuthnResponse(Sp $recipient, array $attributes): SymfonyResponse
+    public function sendAuthnResponse(Sp $recipient, array $attributes): ResponseInterface
     {
         $response = new LightSamlAuthnResponse();
 
@@ -60,10 +66,10 @@ class IdentityProviderWrapper
             $response->addAssertion($assertion);
         }
 
-        return MessageHandler::send($response, $this->idp, $recipient->acs);
+        return MessageHandler::send($response, $this->idp, $recipient->acs, $this->responseFactory, $this->streamFactory);
     }
 
-    public function handleAuthnRequest(SymfonyRequest $request): AuthnRequest
+    public function handleAuthnRequest(ServerRequestInterface $request): AuthnRequest
     {
         $message = MessageHandler::unpack($request);
 
@@ -78,7 +84,7 @@ class IdentityProviderWrapper
         );
     }
 
-    public function sendLogoutRequest(Role $recipient): SymfonyResponse
+    public function sendLogoutRequest(Role $recipient): ResponseInterface
     {
         $logoutRequest = (new LightSamlLogoutRequest())
             ->setID(Helper::generateID())
@@ -86,10 +92,10 @@ class IdentityProviderWrapper
             ->setDestination($recipient->slo->location)
             ->setIssuer(new Issuer($this->idp->entityId));
 
-        return MessageHandler::send($logoutRequest, $this->idp, $recipient->slo);
+        return MessageHandler::send($logoutRequest, $this->idp, $recipient->slo, $this->responseFactory, $this->streamFactory);
     }
 
-    public function sendLogoutResponse(Role $recipient): SymfonyResponse
+    public function sendLogoutResponse(Role $recipient): ResponseInterface
     {
         $logoutResponse = (new LightSamlLogoutResponse())
             ->setStatus(new Status(new StatusCode(SamlConstants::STATUS_SUCCESS)))
@@ -98,10 +104,10 @@ class IdentityProviderWrapper
             ->setDestination($recipient->slo->location)
             ->setIssuer(new Issuer($this->idp->entityId));
 
-        return MessageHandler::send($logoutResponse, $this->idp, $recipient->slo);
+        return MessageHandler::send($logoutResponse, $this->idp, $recipient->slo, $this->responseFactory, $this->streamFactory);
     }
 
-    public function handleLogoutRequest(SymfonyRequest $request): LogoutRequest
+    public function handleLogoutRequest(ServerRequestInterface $request): LogoutRequest
     {
         $message = MessageHandler::unpack($request);
 
@@ -116,7 +122,7 @@ class IdentityProviderWrapper
         );
     }
 
-    public function handleLogoutResponse(SymfonyRequest $request): LogoutResponse
+    public function handleLogoutResponse(ServerRequestInterface $request): LogoutResponse
     {
         $message = MessageHandler::unpack($request);
 

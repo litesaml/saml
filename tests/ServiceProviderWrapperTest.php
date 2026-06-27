@@ -3,40 +3,30 @@
 namespace Tests;
 
 use Litesaml\Exceptions\SamlException;
+use Litesaml\IdentityProviderWrapper;
 use Litesaml\Models\Messages\AuthnRequest;
 use Litesaml\Models\Messages\AuthnResponse;
 use Litesaml\Models\Messages\LogoutRequest;
 use Litesaml\Models\Messages\LogoutResponse;
-use Litesaml\ServiceProviderWrapper;
 use PHPUnit\Framework\Attributes\Test;
-use Symfony\Component\HttpFoundation\Request as SymfonyRequest;
 
 class ServiceProviderWrapperTest extends TestCase
 {
-    private function sp(): ServiceProviderWrapper
-    {
-        return new ServiceProviderWrapper($this->makeSp());
-    }
-
     #[Test]
     public function can_send_authn_request(): void
     {
-        $response = $this->sp()->sendAuthnRequest($this->makeIdp());
+        $response = $this->makeSpWrapper()->sendAuthnRequest($this->makeIdp());
 
         $this->assertEquals(302, $response->getStatusCode());
-        $this->assertStringContainsString('https://idp.localhost/sso', $response->headers->get('Location'));
+        $this->assertStringContainsString('https://idp.localhost/sso', $response->getHeaderLine('Location'));
     }
 
     #[Test]
     public function can_handle_authn_response(): void
     {
-        $request = SymfonyRequest::create(
-            uri: '/acs',
-            method: 'POST',
-            parameters: ['SAMLResponse' => $this->fixture('authn_response', deflate: false)],
-        );
+        $request = $this->makePostRequest('/acs', ['SAMLResponse' => $this->fixture('authn_response', deflate: false)]);
 
-        $message = $this->sp()->handleAuthnResponse($request);
+        $message = $this->makeSpWrapper()->handleAuthnResponse($request);
 
         $this->assertInstanceOf(AuthnResponse::class, $message);
         $this->assertEquals('RESPONSE-ID', $message->id);
@@ -50,24 +40,17 @@ class ServiceProviderWrapperTest extends TestCase
     {
         $this->expectException(SamlException::class);
 
-        $request = SymfonyRequest::create(
-            uri: '/acs',
-            method: 'POST',
-            parameters: ['SAMLResponse' => $this->fixture('logout_response', deflate: false)],
-        );
+        $request = $this->makePostRequest('/acs', ['SAMLResponse' => $this->fixture('logout_response', deflate: false)]);
 
-        $this->sp()->handleAuthnResponse($request);
+        $this->makeSpWrapper()->handleAuthnResponse($request);
     }
 
     #[Test]
     public function can_handle_authn_request(): void
     {
-        $request = SymfonyRequest::create(
-            uri: '/sso',
-            parameters: ['SAMLRequest' => $this->fixture('authn_request')],
-        );
+        $request = $this->makeGetRequest('/sso', ['SAMLRequest' => $this->fixture('authn_request')]);
 
-        $message = $this->sp()->handleAuthnRequest($request);
+        $message = $this->makeSpWrapper()->handleAuthnRequest($request);
 
         $this->assertInstanceOf(AuthnRequest::class, $message);
         $this->assertEquals('MESSAGE-ID', $message->id);
@@ -77,30 +60,27 @@ class ServiceProviderWrapperTest extends TestCase
     #[Test]
     public function can_send_logout_request(): void
     {
-        $response = $this->sp()->sendLogoutRequest($this->makeIdp());
+        $response = $this->makeSpWrapper()->sendLogoutRequest($this->makeIdp());
 
         $this->assertEquals(302, $response->getStatusCode());
-        $this->assertStringContainsString('https://idp.localhost/slo', $response->headers->get('Location'));
+        $this->assertStringContainsString('https://idp.localhost/slo', $response->getHeaderLine('Location'));
     }
 
     #[Test]
     public function can_send_logout_response(): void
     {
-        $response = $this->sp()->sendLogoutResponse($this->makeIdp());
+        $response = $this->makeSpWrapper()->sendLogoutResponse($this->makeIdp());
 
         $this->assertEquals(302, $response->getStatusCode());
-        $this->assertStringContainsString('https://idp.localhost/slo', $response->headers->get('Location'));
+        $this->assertStringContainsString('https://idp.localhost/slo', $response->getHeaderLine('Location'));
     }
 
     #[Test]
     public function can_handle_logout_request(): void
     {
-        $request = SymfonyRequest::create(
-            uri: '/slo',
-            parameters: ['SAMLRequest' => $this->fixture('logout_request')],
-        );
+        $request = $this->makeGetRequest('/slo', ['SAMLRequest' => $this->fixture('logout_request')]);
 
-        $message = $this->sp()->handleLogoutRequest($request);
+        $message = $this->makeSpWrapper()->handleLogoutRequest($request);
 
         $this->assertInstanceOf(LogoutRequest::class, $message);
         $this->assertEquals('LOGOUT-REQUEST-ID', $message->id);
@@ -110,12 +90,9 @@ class ServiceProviderWrapperTest extends TestCase
     #[Test]
     public function can_handle_logout_response(): void
     {
-        $request = SymfonyRequest::create(
-            uri: '/slo',
-            parameters: ['SAMLResponse' => $this->fixture('logout_response')],
-        );
+        $request = $this->makeGetRequest('/slo', ['SAMLResponse' => $this->fixture('logout_response')]);
 
-        $message = $this->sp()->handleLogoutResponse($request);
+        $message = $this->makeSpWrapper()->handleLogoutResponse($request);
 
         $this->assertInstanceOf(LogoutResponse::class, $message);
         $this->assertEquals('LOGOUT-RESPONSE-ID', $message->id);
@@ -125,27 +102,25 @@ class ServiceProviderWrapperTest extends TestCase
     #[Test]
     public function validate_signature_returns_false_without_signing_config(): void
     {
-        $request = SymfonyRequest::create(
-            uri: '/acs',
-            method: 'POST',
-            parameters: ['SAMLResponse' => $this->fixture('authn_response', deflate: false)],
-        );
+        $request = $this->makePostRequest('/acs', ['SAMLResponse' => $this->fixture('authn_response', deflate: false)]);
 
-        $message = $this->sp()->handleAuthnResponse($request);
+        $message = $this->makeSpWrapper()->handleAuthnResponse($request);
 
-        $this->assertFalse($this->sp()->validateSignature($message, $this->makeIdp()));
+        $this->assertFalse($this->makeSpWrapper()->validateSignature($message, $this->makeIdp()));
     }
 
     #[Test]
     public function can_validate_signature(): void
     {
-        $spWithSigning = new ServiceProviderWrapper($this->makeSpWithSigning());
+        $spWithSigning = $this->makeSpWrapper($this->makeSpWithSigning());
 
         $redirectResponse = $spWithSigning->sendAuthnRequest($this->makeIdp());
-        $location = $redirectResponse->headers->get('Location');
+        $location = $redirectResponse->getHeaderLine('Location');
 
-        $request = SymfonyRequest::create($location);
-        $idp = new \Litesaml\IdentityProviderWrapper($this->makeIdp());
+        parse_str((string) parse_url($location, PHP_URL_QUERY), $queryParams);
+        $request = $this->makeGetRequest($location, $queryParams);
+
+        $idp = $this->makeIdpWrapper();
         $message = $idp->handleAuthnRequest($request);
 
         $this->assertTrue($spWithSigning->validateSignature($message, $this->makeSpWithSigning()));
