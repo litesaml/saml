@@ -4,7 +4,7 @@
 All notable changes to this project will be documented in this file.
 <!--- END HEADER -->
 
-## Unreleased
+## 0.4.0 (2026-06-27)
 
 ### Breaking Changes
 
@@ -16,6 +16,10 @@ All notable changes to this project will be documented in this file.
 ### Tests
 
 * Rewrite test suite with fixtures and full coverage
+
+### Documentation
+
+* Add README, CONTRIBUTING, CHANGELOG and LICENSE
 
 ### Continuous Integration
 
