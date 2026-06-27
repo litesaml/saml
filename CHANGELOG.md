@@ -4,6 +4,26 @@
 All notable changes to this project will be documented in this file.
 <!--- END HEADER -->
 
+## 0.5.0 (2026-06-27)
+
+### Breaking Changes
+
+* `sendLogoutRequest()` now requires a `string $nameId` parameter on both wrappers — `LogoutRequest::$nameID` is a non-nullable typed property in lightsaml 5 and must be initialized before serialization
+
+### Bug Fixes
+
+* Build URI with query string in `makeGetRequest()` — `HttpRedirectBinding` reads `getUri()->getQuery()` (raw string), not parsed query params
+* Move `$slo` to `Role` base class so `sendLogoutRequest()` / `sendLogoutResponse()` can accept any `Role` without accessing an undefined property
+
+### Code Refactoring
+
+* Replace `@var` cast + truthy check in `extractSignature()` with `instanceof` check — the previous `@var` hid the nullable type and made the null guard always-false according to PHPStan
+* Add return and param type annotations to `Key::getHeaders()` and `TestCase` helper methods
+
+### Styles
+
+* Apply php-cs-fixer formatting
+
 ## 0.4.0 (2026-06-27)
 
 ### Breaking Changes
