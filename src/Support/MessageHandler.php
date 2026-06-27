@@ -25,7 +25,8 @@ final class MessageHandler
     public function __construct(
         private ResponseFactoryInterface $responseFactory,
         private StreamFactoryInterface $streamFactory,
-    ) {}
+    ) {
+    }
 
     public function send(
         SamlMessage $message,

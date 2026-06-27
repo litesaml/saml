@@ -4,7 +4,9 @@ namespace Litesaml\Models\Descriptors;
 
 abstract readonly class Key
 {
-    public function __construct(public string $value) {}
+    public function __construct(public string $value)
+    {
+    }
 
     /** @return array{start: string, end: string} */
     abstract protected function getHeaders(): array;

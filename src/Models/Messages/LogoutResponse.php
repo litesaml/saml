@@ -2,4 +2,6 @@
 
 namespace Litesaml\Models\Messages;
 
-readonly class LogoutResponse extends Message {}
+readonly class LogoutResponse extends Message
+{
+}

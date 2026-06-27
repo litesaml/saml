@@ -8,5 +8,6 @@ abstract readonly class Message
         public string $id,
         public string $issuer,
         public ?Signature $signature,
-    ) {}
+    ) {
+    }
 }

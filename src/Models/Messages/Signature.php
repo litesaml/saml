@@ -8,5 +8,6 @@ readonly class Signature
         public string $value,
         public string $algorithm,
         public string $data,
-    ) {}
+    ) {
+    }
 }

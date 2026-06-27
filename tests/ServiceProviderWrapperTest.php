@@ -3,7 +3,6 @@
 namespace Tests;
 
 use Litesaml\Exceptions\SamlException;
-use Litesaml\IdentityProviderWrapper;
 use Litesaml\Models\Messages\AuthnRequest;
 use Litesaml\Models\Messages\AuthnResponse;
 use Litesaml\Models\Messages\LogoutRequest;

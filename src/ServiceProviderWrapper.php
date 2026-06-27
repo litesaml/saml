@@ -32,7 +32,8 @@ class ServiceProviderWrapper
     public function __construct(
         private Sp $sp,
         private MessageHandler $messageHandler,
-    ) {}
+    ) {
+    }
 
     public function sendAuthnRequest(Idp $recipient): ResponseInterface
     {
@@ -80,7 +81,7 @@ class ServiceProviderWrapper
     {
         $message = $this->messageHandler->unpack($request);
 
-        if (!$message instanceof LightSaml\AuthnRequest) {
+        if (!$message instanceof LightSamlAuthnRequest) {
             throw new SamlException('Wrong request received');
         }
 
@@ -119,7 +120,7 @@ class ServiceProviderWrapper
     {
         $message = $this->messageHandler->unpack($request);
 
-        if (!$message instanceof LightSaml\LogoutRequest) {
+        if (!$message instanceof LightSamlLogoutRequest) {
             throw new SamlException('Wrong request received');
         }
 
@@ -134,7 +135,7 @@ class ServiceProviderWrapper
     {
         $message = $this->messageHandler->unpack($request);
 
-        if (!$message instanceof LightSaml\LogoutResponse) {
+        if (!$message instanceof LightSamlLogoutResponse) {
             throw new SamlException('Wrong request received');
         }
 

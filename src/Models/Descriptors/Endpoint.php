@@ -10,7 +10,8 @@ readonly class Endpoint
     public function __construct(
         public string $location,
         public BindingType $binding,
-    ) {}
+    ) {
+    }
 
     public function getBinding(): string
     {

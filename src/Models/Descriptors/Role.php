@@ -8,5 +8,6 @@ abstract readonly class Role
         public string $entityId,
         public Endpoint $slo,
         public ?Certificate $signing = null,
-    ) {}
+    ) {
+    }
 }

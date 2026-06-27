@@ -9,7 +9,6 @@ use LightSaml\Model\Assertion\Attribute as LightSamlAttribute;
 use LightSaml\Model\Assertion\AttributeStatement;
 use LightSaml\Model\Assertion\Issuer;
 use LightSaml\Model\Assertion\NameID;
-use LightSaml\Model\Protocol as LightSaml;
 use LightSaml\Model\Protocol\AuthnRequest as LightSamlAuthnRequest;
 use LightSaml\Model\Protocol\LogoutRequest as LightSamlLogoutRequest;
 use LightSaml\Model\Protocol\LogoutResponse as LightSamlLogoutResponse;
@@ -35,7 +34,8 @@ class IdentityProviderWrapper
     public function __construct(
         private Idp $idp,
         private MessageHandler $messageHandler,
-    ) {}
+    ) {
+    }
 
     /**
      * @param Attribute[] $attributes
@@ -110,7 +110,7 @@ class IdentityProviderWrapper
     {
         $message = $this->messageHandler->unpack($request);
 
-        if (!$message instanceof LightSaml\LogoutRequest) {
+        if (!$message instanceof LightSamlLogoutRequest) {
             throw new SamlException('Wrong request received');
         }
 
@@ -125,7 +125,7 @@ class IdentityProviderWrapper
     {
         $message = $this->messageHandler->unpack($request);
 
-        if (!$message instanceof LightSaml\LogoutResponse) {
+        if (!$message instanceof LightSamlLogoutResponse) {
             throw new SamlException('Wrong request received');
         }
 
