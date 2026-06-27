@@ -116,17 +116,19 @@ class IdentityProviderWrapper
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
             signature: $this->messageHandler->extractSignature($message),
+            relayState: $message->getRelayState(),
         );
     }
 
-    public function sendLogoutRequest(Role $recipient, string $nameId): ResponseInterface
+    public function sendLogoutRequest(Role $recipient, string $nameId, ?string $relayState = null): ResponseInterface
     {
         $logoutRequest = (new LightSamlLogoutRequest())
             ->setID(Helper::generateID())
             ->setIssueInstant(new DateTime())
             ->setDestination($recipient->slo->location)
             ->setIssuer(new Issuer($this->idp->entityId))
-            ->setNameID(new NameID($nameId));
+            ->setNameID(new NameID($nameId))
+            ->setRelayState($relayState);
 
         return $this->messageHandler->send($logoutRequest, $this->idp, $recipient->slo);
     }
@@ -155,6 +157,7 @@ class IdentityProviderWrapper
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
             signature: $this->messageHandler->extractSignature($message),
+            relayState: $message->getRelayState(),
         );
     }
 
@@ -170,6 +173,7 @@ class IdentityProviderWrapper
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
             signature: $this->messageHandler->extractSignature($message),
+            relayState: $message->getRelayState(),
         );
     }
 

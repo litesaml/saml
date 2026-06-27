@@ -69,6 +69,14 @@ class ServiceProviderWrapperTest extends TestCase
     }
 
     #[Test]
+    public function send_authn_request_includes_relay_state(): void
+    {
+        $response = $this->makeSpWrapper()->sendAuthnRequest($this->makeIdp(), 'my-relay-state');
+
+        $this->assertStringContainsString('RelayState=my-relay-state', $response->getHeaderLine('Location'));
+    }
+
+    #[Test]
     public function can_handle_authn_response(): void
     {
         $request = $this->makePostRequest('/acs', ['SAMLResponse' => $this->fixture('authn_response', deflate: false)]);
@@ -99,13 +107,14 @@ class ServiceProviderWrapperTest extends TestCase
     #[Test]
     public function can_handle_authn_request(): void
     {
-        $request = $this->makeGetRequest('/sso', ['SAMLRequest' => $this->fixture('authn_request')]);
+        $request = $this->makeGetRequest('/sso', ['SAMLRequest' => $this->fixture('authn_request'), 'RelayState' => 'my-relay-state']);
 
         $message = $this->makeSpWrapper()->handleAuthnRequest($request);
 
         $this->assertInstanceOf(AuthnRequest::class, $message);
         $this->assertEquals('MESSAGE-ID', $message->id);
         $this->assertEquals('https://sp.localhost', $message->issuer);
+        $this->assertEquals('my-relay-state', $message->relayState);
     }
 
     #[Test]
@@ -115,6 +124,14 @@ class ServiceProviderWrapperTest extends TestCase
 
         $this->assertEquals(302, $response->getStatusCode());
         $this->assertStringContainsString('https://idp.localhost/slo', $response->getHeaderLine('Location'));
+    }
+
+    #[Test]
+    public function send_logout_request_includes_relay_state(): void
+    {
+        $response = $this->makeSpWrapper()->sendLogoutRequest($this->makeIdp(), 'user@example.com', 'my-relay-state');
+
+        $this->assertStringContainsString('RelayState=my-relay-state', $response->getHeaderLine('Location'));
     }
 
     #[Test]

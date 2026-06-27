@@ -112,7 +112,7 @@ class ServiceProviderWrapper
         return (string) $context->getDocument()->saveXML();
     }
 
-    public function sendAuthnRequest(Idp $recipient): ResponseInterface
+    public function sendAuthnRequest(Idp $recipient, ?string $relayState = null): ResponseInterface
     {
         $authnRequest = (new LightSamlAuthnRequest())
             ->setAssertionConsumerServiceURL($this->sp->acs->location)
@@ -120,7 +120,8 @@ class ServiceProviderWrapper
             ->setID(Helper::generateID())
             ->setIssueInstant(new DateTime())
             ->setDestination($recipient->sso->location)
-            ->setIssuer(new Issuer($this->sp->entityId));
+            ->setIssuer(new Issuer($this->sp->entityId))
+            ->setRelayState($relayState);
 
         return $this->messageHandler->send($authnRequest, $this->sp, $recipient->sso);
     }
@@ -161,6 +162,7 @@ class ServiceProviderWrapper
             status: $statusUrn !== null ? Status::fromUrn($statusUrn) : null,
             nameId: $nameId,
             inResponseTo: $message->getInResponseTo(),
+            relayState: $message->getRelayState(),
         );
     }
 
@@ -176,17 +178,19 @@ class ServiceProviderWrapper
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
             signature: $this->messageHandler->extractSignature($message),
+            relayState: $message->getRelayState(),
         );
     }
 
-    public function sendLogoutRequest(Role $recipient, string $nameId): ResponseInterface
+    public function sendLogoutRequest(Role $recipient, string $nameId, ?string $relayState = null): ResponseInterface
     {
         $logoutRequest = (new LightSamlLogoutRequest())
             ->setID(Helper::generateID())
             ->setIssueInstant(new DateTime())
             ->setDestination($recipient->slo->location)
             ->setIssuer(new Issuer($this->sp->entityId))
-            ->setNameID(new NameID($nameId));
+            ->setNameID(new NameID($nameId))
+            ->setRelayState($relayState);
 
         return $this->messageHandler->send($logoutRequest, $this->sp, $recipient->slo);
     }
@@ -215,6 +219,7 @@ class ServiceProviderWrapper
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
             signature: $this->messageHandler->extractSignature($message),
+            relayState: $message->getRelayState(),
         );
     }
 
@@ -230,6 +235,7 @@ class ServiceProviderWrapper
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
             signature: $this->messageHandler->extractSignature($message),
+            relayState: $message->getRelayState(),
         );
     }
 

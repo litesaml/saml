@@ -17,8 +17,9 @@ readonly class AuthnResponse extends Message
         public ?Status $status = null,
         public ?string $nameId = null,
         public ?string $inResponseTo = null,
+        ?string $relayState = null,
     ) {
-        parent::__construct($id, $issuer, $signature);
+        parent::__construct($id, $issuer, $signature, $relayState);
     }
 
     public function isSuccess(): bool
