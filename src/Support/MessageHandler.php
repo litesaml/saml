@@ -70,10 +70,9 @@ final class MessageHandler
 
     public function extractSignature(SamlMessage $message): ?Signature
     {
-        /** @var SignatureStringReader $signatureReader */
         $signatureReader = $message->getSignature();
 
-        if (!$signatureReader) {
+        if (!$signatureReader instanceof SignatureStringReader) {
             return null;
         }
 

@@ -7,9 +7,9 @@ readonly class Sp extends Role
     public function __construct(
         string $entityId,
         public Endpoint $acs,
-        public Endpoint $slo,
+        Endpoint $slo,
         ?Certificate $signing = null,
     ) {
-        parent::__construct($entityId, $signing);
+        parent::__construct($entityId, $slo, $signing);
     }
 }

@@ -11,6 +11,7 @@ readonly class PrivateKey extends Key
         parent::__construct($value);
     }
 
+    /** @return array{start: string, end: string} */
     protected function getHeaders(): array
     {
         return [

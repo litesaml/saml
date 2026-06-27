@@ -29,6 +29,7 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
         return new Psr17Factory();
     }
 
+    /** @param array<string, string> $params */
     protected function makeGetRequest(string $uri, array $params): ServerRequestInterface
     {
         if (!str_contains($uri, '?') && !empty($params)) {
@@ -38,6 +39,7 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
         return $this->makeFactory()->createServerRequest('GET', $uri);
     }
 
+    /** @param array<string, string> $params */
     protected function makePostRequest(string $uri, array $params): ServerRequestInterface
     {
         return $this->makeFactory()->createServerRequest('POST', $uri)->withParsedBody($params);
