@@ -4,6 +4,26 @@
 All notable changes to this project will be documented in this file.
 <!--- END HEADER -->
 
+## 1.0.0 (2026-06-27)
+
+### Breaking Changes
+
+* `Attribute::$values` is now `string[]` — all attribute values are returned as an array; consumers that expected a single string must be updated
+
+### Features
+
+* Encrypted assertion support — IdP can send encrypted assertions via `Attribute::$encrypted`, SP decrypts them automatically in `handleAuthnResponse()`
+* Opt-in signature validation on all `handle*` methods via `$validate` and `$issuer` parameters on both wrappers
+* `ServiceProviderWrapper::parseMetadata()` builds an `Idp` descriptor from raw XML metadata
+* `generateMetadata()` on both `ServiceProviderWrapper` and `IdentityProviderWrapper`
+* `AuthnResponse` now carries `status`, `nameId`, and `inResponseTo`
+* `LogoutRequest` now carries `nameId` and `sessionIndex`
+* RelayState forwarding in all `send*` and `handle*` methods
+
+### Tests
+
+* Line coverage raised to 99.46% — error paths, wrong message types, and edge cases fully covered
+
 ## 0.5.0 (2026-06-27)
 
 ### Breaking Changes
