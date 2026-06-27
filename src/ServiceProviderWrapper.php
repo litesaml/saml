@@ -126,7 +126,7 @@ class ServiceProviderWrapper
         return $this->messageHandler->send($authnRequest, $this->sp, $recipient->sso);
     }
 
-    public function handleAuthnResponse(ServerRequestInterface $request): AuthnResponse
+    public function handleAuthnResponse(ServerRequestInterface $request, bool $validate = false, ?Role $issuer = null): AuthnResponse
     {
         $message = $this->messageHandler->unpack($request);
 
@@ -154,7 +154,7 @@ class ServiceProviderWrapper
 
         $statusUrn = $message->getStatus()?->getStatusCode()?->getValue();
 
-        return new AuthnResponse(
+        $dto = new AuthnResponse(
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
             signature: $this->messageHandler->extractSignature($message),
@@ -164,9 +164,13 @@ class ServiceProviderWrapper
             inResponseTo: $message->getInResponseTo(),
             relayState: $message->getRelayState(),
         );
+
+        $this->validateIfRequested($dto, $validate, $issuer);
+
+        return $dto;
     }
 
-    public function handleAuthnRequest(ServerRequestInterface $request): AuthnRequest
+    public function handleAuthnRequest(ServerRequestInterface $request, bool $validate = false, ?Role $issuer = null): AuthnRequest
     {
         $message = $this->messageHandler->unpack($request);
 
@@ -174,12 +178,16 @@ class ServiceProviderWrapper
             throw new SamlException('Wrong request received');
         }
 
-        return new AuthnRequest(
+        $dto = new AuthnRequest(
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
             signature: $this->messageHandler->extractSignature($message),
             relayState: $message->getRelayState(),
         );
+
+        $this->validateIfRequested($dto, $validate, $issuer);
+
+        return $dto;
     }
 
     public function sendLogoutRequest(Role $recipient, string $nameId, ?string $relayState = null, ?string $sessionIndex = null): ResponseInterface
@@ -208,7 +216,7 @@ class ServiceProviderWrapper
         return $this->messageHandler->send($logoutResponse, $this->sp, $recipient->slo);
     }
 
-    public function handleLogoutRequest(ServerRequestInterface $request): LogoutRequest
+    public function handleLogoutRequest(ServerRequestInterface $request, bool $validate = false, ?Role $issuer = null): LogoutRequest
     {
         $message = $this->messageHandler->unpack($request);
 
@@ -216,7 +224,7 @@ class ServiceProviderWrapper
             throw new SamlException('Wrong request received');
         }
 
-        return new LogoutRequest(
+        $dto = new LogoutRequest(
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
             signature: $this->messageHandler->extractSignature($message),
@@ -224,9 +232,13 @@ class ServiceProviderWrapper
             sessionIndex: $message->getSessionIndex(),
             relayState: $message->getRelayState(),
         );
+
+        $this->validateIfRequested($dto, $validate, $issuer);
+
+        return $dto;
     }
 
-    public function handleLogoutResponse(ServerRequestInterface $request): LogoutResponse
+    public function handleLogoutResponse(ServerRequestInterface $request, bool $validate = false, ?Role $issuer = null): LogoutResponse
     {
         $message = $this->messageHandler->unpack($request);
 
@@ -234,16 +246,35 @@ class ServiceProviderWrapper
             throw new SamlException('Wrong request received');
         }
 
-        return new LogoutResponse(
+        $dto = new LogoutResponse(
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
             signature: $this->messageHandler->extractSignature($message),
             relayState: $message->getRelayState(),
         );
+
+        $this->validateIfRequested($dto, $validate, $issuer);
+
+        return $dto;
     }
 
     public function validateSignature(Message $message, Role $issuer): bool
     {
         return $this->messageHandler->validateSignature($message, $issuer);
+    }
+
+    private function validateIfRequested(Message $dto, bool $validate, ?Role $issuer): void
+    {
+        if (!$validate) {
+            return;
+        }
+
+        if ($issuer === null) {
+            throw new SamlException('An issuer must be provided to validate the signature');
+        }
+
+        if (!$this->messageHandler->validateSignature($dto, $issuer)) {
+            throw new SamlException('Invalid signature');
+        }
     }
 }

@@ -116,7 +116,7 @@ class IdentityProviderWrapper
         return $this->messageHandler->send($response, $this->idp, $recipient->acs);
     }
 
-    public function handleAuthnRequest(ServerRequestInterface $request): AuthnRequest
+    public function handleAuthnRequest(ServerRequestInterface $request, bool $validate = false, ?Role $issuer = null): AuthnRequest
     {
         $message = $this->messageHandler->unpack($request);
 
@@ -124,12 +124,16 @@ class IdentityProviderWrapper
             throw new SamlException('Wrong request received');
         }
 
-        return new AuthnRequest(
+        $dto = new AuthnRequest(
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
             signature: $this->messageHandler->extractSignature($message),
             relayState: $message->getRelayState(),
         );
+
+        $this->validateIfRequested($dto, $validate, $issuer);
+
+        return $dto;
     }
 
     public function sendLogoutRequest(Role $recipient, string $nameId, ?string $relayState = null, ?string $sessionIndex = null): ResponseInterface
@@ -158,7 +162,7 @@ class IdentityProviderWrapper
         return $this->messageHandler->send($logoutResponse, $this->idp, $recipient->slo);
     }
 
-    public function handleLogoutRequest(ServerRequestInterface $request): LogoutRequest
+    public function handleLogoutRequest(ServerRequestInterface $request, bool $validate = false, ?Role $issuer = null): LogoutRequest
     {
         $message = $this->messageHandler->unpack($request);
 
@@ -166,7 +170,7 @@ class IdentityProviderWrapper
             throw new SamlException('Wrong request received');
         }
 
-        return new LogoutRequest(
+        $dto = new LogoutRequest(
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
             signature: $this->messageHandler->extractSignature($message),
@@ -174,9 +178,13 @@ class IdentityProviderWrapper
             sessionIndex: $message->getSessionIndex(),
             relayState: $message->getRelayState(),
         );
+
+        $this->validateIfRequested($dto, $validate, $issuer);
+
+        return $dto;
     }
 
-    public function handleLogoutResponse(ServerRequestInterface $request): LogoutResponse
+    public function handleLogoutResponse(ServerRequestInterface $request, bool $validate = false, ?Role $issuer = null): LogoutResponse
     {
         $message = $this->messageHandler->unpack($request);
 
@@ -184,16 +192,35 @@ class IdentityProviderWrapper
             throw new SamlException('Wrong request received');
         }
 
-        return new LogoutResponse(
+        $dto = new LogoutResponse(
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
             signature: $this->messageHandler->extractSignature($message),
             relayState: $message->getRelayState(),
         );
+
+        $this->validateIfRequested($dto, $validate, $issuer);
+
+        return $dto;
     }
 
     public function validateSignature(Message $message, Role $issuer): bool
     {
         return $this->messageHandler->validateSignature($message, $issuer);
+    }
+
+    private function validateIfRequested(Message $dto, bool $validate, ?Role $issuer): void
+    {
+        if (!$validate) {
+            return;
+        }
+
+        if ($issuer === null) {
+            throw new SamlException('An issuer must be provided to validate the signature');
+        }
+
+        if (!$this->messageHandler->validateSignature($dto, $issuer)) {
+            throw new SamlException('Invalid signature');
+        }
     }
 }

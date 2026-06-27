@@ -6,6 +6,7 @@ use Litesaml\Enums\BindingType;
 use Litesaml\Enums\Status;
 use Litesaml\Exceptions\SamlException;
 use Litesaml\Models\Descriptors\Idp;
+use Litesaml\Models\Messages\Attribute;
 use Litesaml\Models\Messages\AuthnRequest;
 use Litesaml\Models\Messages\AuthnResponse;
 use Litesaml\Models\Messages\LogoutRequest;
@@ -205,5 +206,142 @@ class ServiceProviderWrapperTest extends TestCase
         $message = $idp->handleAuthnRequest($request);
 
         $this->assertTrue($spWithSigning->validateSignature($message, $this->makeSpWithSigning()));
+    }
+
+    #[Test]
+    public function handle_authn_response_throws_when_validate_requires_issuer(): void
+    {
+        $this->expectException(SamlException::class);
+        $this->expectExceptionMessage('An issuer must be provided to validate the signature');
+
+        $request = $this->makePostRequest('/acs', ['SAMLResponse' => $this->fixture('authn_response', deflate: false)]);
+        $this->makeSpWrapper()->handleAuthnResponse($request, validate: true);
+    }
+
+    #[Test]
+    public function handle_authn_response_throws_on_invalid_signature(): void
+    {
+        $this->expectException(SamlException::class);
+        $this->expectExceptionMessage('Invalid signature');
+
+        $request = $this->makePostRequest('/acs', ['SAMLResponse' => $this->fixture('authn_response', deflate: false)]);
+        $this->makeSpWrapper()->handleAuthnResponse($request, validate: true, issuer: $this->makeIdp());
+    }
+
+    #[Test]
+    public function handle_authn_response_validates_signature_when_requested(): void
+    {
+        $idpWithSigning = $this->makeIdpWrapper($this->makeIdpWithSigning());
+        $attributes = [new Attribute(name: 'email', values: ['user@example.com'])];
+
+        $response = $idpWithSigning->sendAuthnResponse($this->makeSp(), $attributes);
+        parse_str((string) parse_url($response->getHeaderLine('Location'), PHP_URL_QUERY), $params);
+        $request = $this->makeGetRequest('/acs', $params);
+
+        $message = $this->makeSpWrapper()->handleAuthnResponse($request, validate: true, issuer: $this->makeIdpWithSigning());
+
+        $this->assertInstanceOf(AuthnResponse::class, $message);
+    }
+
+    #[Test]
+    public function handle_authn_request_throws_when_validate_requires_issuer(): void
+    {
+        $this->expectException(SamlException::class);
+        $this->expectExceptionMessage('An issuer must be provided to validate the signature');
+
+        $request = $this->makeGetRequest('/sso', ['SAMLRequest' => $this->fixture('authn_request')]);
+        $this->makeSpWrapper()->handleAuthnRequest($request, validate: true);
+    }
+
+    #[Test]
+    public function handle_authn_request_throws_on_invalid_signature(): void
+    {
+        $this->expectException(SamlException::class);
+        $this->expectExceptionMessage('Invalid signature');
+
+        $request = $this->makeGetRequest('/sso', ['SAMLRequest' => $this->fixture('authn_request')]);
+        $this->makeSpWrapper()->handleAuthnRequest($request, validate: true, issuer: $this->makeSp());
+    }
+
+    #[Test]
+    public function handle_authn_request_validates_signature_when_requested(): void
+    {
+        $spWithSigning = $this->makeSpWrapper($this->makeSpWithSigning());
+
+        $response = $spWithSigning->sendAuthnRequest($this->makeIdp());
+        parse_str((string) parse_url($response->getHeaderLine('Location'), PHP_URL_QUERY), $params);
+        $request = $this->makeGetRequest('/sso', $params);
+
+        $message = $this->makeSpWrapper()->handleAuthnRequest($request, validate: true, issuer: $this->makeSpWithSigning());
+
+        $this->assertInstanceOf(AuthnRequest::class, $message);
+    }
+
+    #[Test]
+    public function handle_logout_request_throws_when_validate_requires_issuer(): void
+    {
+        $this->expectException(SamlException::class);
+        $this->expectExceptionMessage('An issuer must be provided to validate the signature');
+
+        $request = $this->makeGetRequest('/slo', ['SAMLRequest' => $this->fixture('logout_request')]);
+        $this->makeSpWrapper()->handleLogoutRequest($request, validate: true);
+    }
+
+    #[Test]
+    public function handle_logout_request_throws_on_invalid_signature(): void
+    {
+        $this->expectException(SamlException::class);
+        $this->expectExceptionMessage('Invalid signature');
+
+        $request = $this->makeGetRequest('/slo', ['SAMLRequest' => $this->fixture('logout_request')]);
+        $this->makeSpWrapper()->handleLogoutRequest($request, validate: true, issuer: $this->makeIdp());
+    }
+
+    #[Test]
+    public function handle_logout_request_validates_signature_when_requested(): void
+    {
+        $idpWithSigning = $this->makeIdpWrapper($this->makeIdpWithSigning());
+
+        $response = $idpWithSigning->sendLogoutRequest($this->makeSp(), 'user@example.com');
+        parse_str((string) parse_url($response->getHeaderLine('Location'), PHP_URL_QUERY), $params);
+        $request = $this->makeGetRequest('/slo', $params);
+
+        $message = $this->makeSpWrapper()->handleLogoutRequest($request, validate: true, issuer: $this->makeIdpWithSigning());
+
+        $this->assertInstanceOf(LogoutRequest::class, $message);
+    }
+
+    #[Test]
+    public function handle_logout_response_throws_when_validate_requires_issuer(): void
+    {
+        $this->expectException(SamlException::class);
+        $this->expectExceptionMessage('An issuer must be provided to validate the signature');
+
+        $request = $this->makeGetRequest('/slo', ['SAMLResponse' => $this->fixture('logout_response')]);
+        $this->makeSpWrapper()->handleLogoutResponse($request, validate: true);
+    }
+
+    #[Test]
+    public function handle_logout_response_throws_on_invalid_signature(): void
+    {
+        $this->expectException(SamlException::class);
+        $this->expectExceptionMessage('Invalid signature');
+
+        $request = $this->makeGetRequest('/slo', ['SAMLResponse' => $this->fixture('logout_response')]);
+        $this->makeSpWrapper()->handleLogoutResponse($request, validate: true, issuer: $this->makeIdp());
+    }
+
+    #[Test]
+    public function handle_logout_response_validates_signature_when_requested(): void
+    {
+        $idpWithSigning = $this->makeIdpWrapper($this->makeIdpWithSigning());
+
+        $response = $idpWithSigning->sendLogoutResponse($this->makeSp());
+        parse_str((string) parse_url($response->getHeaderLine('Location'), PHP_URL_QUERY), $params);
+        $request = $this->makeGetRequest('/slo', $params);
+
+        $message = $this->makeSpWrapper()->handleLogoutResponse($request, validate: true, issuer: $this->makeIdpWithSigning());
+
+        $this->assertInstanceOf(LogoutResponse::class, $message);
     }
 }
