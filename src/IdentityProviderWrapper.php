@@ -89,14 +89,16 @@ class IdentityProviderWrapper
             ->setIssuer(new Issuer($this->idp->entityId));
 
         foreach ($attributes as $attribute) {
+            $lightSamlAttribute = new LightSamlAttribute($attribute->name);
+            foreach ($attribute->values as $value) {
+                $lightSamlAttribute->addAttributeValue($value);
+            }
+
             $assertion = (new Assertion())
                 ->setId(Helper::generateID())
                 ->setIssueInstant(new DateTime())
                 ->setIssuer($response->getIssuer())
-                ->addItem(
-                    (new AttributeStatement())
-                        ->addAttribute(new LightSamlAttribute($attribute->name, $attribute->value))
-                );
+                ->addItem((new AttributeStatement())->addAttribute($lightSamlAttribute));
 
             $response->addAssertion($assertion);
         }

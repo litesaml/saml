@@ -4,9 +4,12 @@ namespace Litesaml\Models\Messages;
 
 readonly class Attribute
 {
+    /**
+     * @param array<mixed> $values
+     */
     public function __construct(
         public string $name,
-        public mixed $value,
+        public array $values,
     ) {
     }
 }

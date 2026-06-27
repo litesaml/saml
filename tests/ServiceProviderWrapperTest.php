@@ -86,12 +86,23 @@ class ServiceProviderWrapperTest extends TestCase
         $this->assertInstanceOf(AuthnResponse::class, $message);
         $this->assertEquals('RESPONSE-ID', $message->id);
         $this->assertEquals('https://idp.localhost', $message->issuer);
-        $this->assertEquals('user@example.com', $message->getAttributeByName('email')?->value);
+        $this->assertEquals(['user@example.com'], $message->getAttributeByName('email')?->values);
         $this->assertNull($message->getAttributeByName('nonexistent'));
         $this->assertEquals(Status::SUCCESS, $message->status);
         $this->assertEquals('user@example.com', $message->nameId);
         $this->assertEquals('REQUEST-ID', $message->inResponseTo);
         $this->assertTrue($message->isSuccess());
+    }
+
+    #[Test]
+    public function can_handle_authn_response_with_multi_value_attributes(): void
+    {
+        $request = $this->makePostRequest('/acs', ['SAMLResponse' => $this->fixture('authn_response_multi_values', deflate: false)]);
+
+        $message = $this->makeSpWrapper()->handleAuthnResponse($request);
+
+        $this->assertEquals(['user@example.com'], $message->getAttributeByName('email')?->values);
+        $this->assertEquals(['admin', 'editor', 'viewer'], $message->getAttributeByName('roles')?->values);
     }
 
     #[Test]

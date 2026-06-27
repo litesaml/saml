@@ -146,7 +146,7 @@ class ServiceProviderWrapper
                 foreach ($attributeStatement->getAllAttributes() as $attribute) {
                     $attributes[] = new Attribute(
                         name: $attribute->getName(),
-                        value: $attribute->getFirstAttributeValue(),
+                        values: $attribute->getAllAttributeValues() ?? [],
                     );
                 }
             }

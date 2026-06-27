@@ -58,7 +58,7 @@ class IdentityProviderWrapperTest extends TestCase
     public function can_send_authn_response(): void
     {
         $attributes = [
-            new Attribute(name: 'email', value: 'user@example.com'),
+            new Attribute(name: 'email', values: ['user@example.com']),
         ];
 
         $response = $this->makeIdpWrapper()->sendAuthnResponse($this->makeSp(), $attributes);
