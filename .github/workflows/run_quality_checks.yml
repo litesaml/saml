@@ -1,4 +1,4 @@
-name: Run tests
+name: Run quality checks
 
 on:
   push:
@@ -9,13 +9,7 @@ on:
 
 jobs:
   build:
-    name: Tests on PHP ${{ matrix.php }}
     runs-on: ubuntu-latest
-
-    strategy:
-      fail-fast: false
-      matrix:
-        php: [8.4, 8.5]
 
     steps:
       - uses: actions/checkout@v4
@@ -23,7 +17,7 @@ jobs:
       - name: Set PHP version
         uses: shivammathur/setup-php@v2
         with:
-          php-version: ${{ matrix.php }}
+          php-version: 8.4
           coverage: none
 
       - name: Cache Composer dependencies
@@ -33,8 +27,11 @@ jobs:
           key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
           restore-keys: ${{ runner.os }}-composer-
 
-      - name: Install dependencies
+      - name: Install composer dependencies
         run: composer install --quiet --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
 
-      - name: Run tests
-        run: composer test
+      - name: Run phpcs
+        run: composer phpcs
+
+      - name: Run phpstan
+        run: composer phpstan
