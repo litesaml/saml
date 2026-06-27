@@ -12,6 +12,27 @@ use PHPUnit\Framework\Attributes\Test;
 class IdentityProviderWrapperTest extends TestCase
 {
     #[Test]
+    public function can_generate_metadata(): void
+    {
+        $xml = $this->makeIdpWrapper()->generateMetadata();
+
+        $this->assertStringContainsString('EntityDescriptor', $xml);
+        $this->assertStringContainsString('https://idp.localhost', $xml);
+        $this->assertStringContainsString('IDPSSODescriptor', $xml);
+        $this->assertStringContainsString('SingleSignOnService', $xml);
+        $this->assertStringContainsString('SingleLogoutService', $xml);
+    }
+
+    #[Test]
+    public function generate_metadata_includes_key_descriptor_when_signing_configured(): void
+    {
+        $xml = $this->makeIdpWrapper($this->makeIdpWithSigning())->generateMetadata();
+
+        $this->assertStringContainsString('KeyDescriptor', $xml);
+        $this->assertStringContainsString('use="signing"', $xml);
+    }
+
+    #[Test]
     public function can_handle_authn_request(): void
     {
         $request = $this->makeGetRequest('/sso', ['SAMLRequest' => $this->fixture('authn_request')]);

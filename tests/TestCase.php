@@ -76,6 +76,19 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
         );
     }
 
+    protected function makeIdpWithSigning(): Idp
+    {
+        return new Idp(
+            entityId: 'https://idp.localhost',
+            sso: new Endpoint('https://idp.localhost/sso', BindingType::REDIRECT),
+            slo: new Endpoint('https://idp.localhost/slo', BindingType::REDIRECT),
+            signing: new Certificate(
+                publicKey: new PublicKey(file_get_contents(__DIR__ . '/fixtures/signing_cert.pem')),
+                privateKey: new PrivateKey(file_get_contents(__DIR__ . '/fixtures/signing_key.pem')),
+            ),
+        );
+    }
+
     protected function makeMessageHandler(): MessageHandler
     {
         $f = $this->makeFactory();

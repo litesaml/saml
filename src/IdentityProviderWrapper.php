@@ -3,12 +3,19 @@
 namespace Litesaml;
 
 use DateTime;
+use LightSaml\Context\Model\SerializationContext;
+use LightSaml\Credential\X509Certificate;
 use LightSaml\Helper;
 use LightSaml\Model\Assertion\Assertion;
 use LightSaml\Model\Assertion\Attribute as LightSamlAttribute;
 use LightSaml\Model\Assertion\AttributeStatement;
 use LightSaml\Model\Assertion\Issuer;
 use LightSaml\Model\Assertion\NameID;
+use LightSaml\Model\Metadata\EntityDescriptor;
+use LightSaml\Model\Metadata\IdpSsoDescriptor;
+use LightSaml\Model\Metadata\KeyDescriptor;
+use LightSaml\Model\Metadata\SingleLogoutService;
+use LightSaml\Model\Metadata\SingleSignOnService;
 use LightSaml\Model\Protocol\AuthnRequest as LightSamlAuthnRequest;
 use LightSaml\Model\Protocol\LogoutRequest as LightSamlLogoutRequest;
 use LightSaml\Model\Protocol\LogoutResponse as LightSamlLogoutResponse;
@@ -35,6 +42,36 @@ class IdentityProviderWrapper
         private Idp $idp,
         private MessageHandler $messageHandler,
     ) {
+    }
+
+    public function generateMetadata(): string
+    {
+        $idpSsoDescriptor = new IdpSsoDescriptor();
+
+        if ($this->idp->signing) {
+            $cert = (new X509Certificate())->loadPem($this->idp->signing->publicKey->toPem());
+            $idpSsoDescriptor->addKeyDescriptor(new KeyDescriptor(KeyDescriptor::USE_SIGNING, $cert));
+        }
+
+        $idpSsoDescriptor->addSingleSignOnService(
+            (new SingleSignOnService())
+                ->setBinding($this->idp->sso->getBinding())
+                ->setLocation($this->idp->sso->location)
+        );
+
+        $idpSsoDescriptor->addSingleLogoutService(
+            (new SingleLogoutService())
+                ->setBinding($this->idp->slo->getBinding())
+                ->setLocation($this->idp->slo->location)
+        );
+
+        $entityDescriptor = (new EntityDescriptor($this->idp->entityId))
+            ->addItem($idpSsoDescriptor);
+
+        $context = new SerializationContext();
+        $entityDescriptor->serialize($context->getDocument(), $context);
+
+        return (string) $context->getDocument()->saveXML();
     }
 
     /**
