@@ -20,8 +20,12 @@ use LightSaml\Model\Protocol\LogoutResponse as LightSamlLogoutResponse;
 use LightSaml\Model\Protocol\Status;
 use LightSaml\Model\Protocol\StatusCode;
 use LightSaml\SamlConstants;
+use Litesaml\Enums\BindingType;
 use Litesaml\Exceptions\SamlException;
+use Litesaml\Models\Descriptors\Certificate;
+use Litesaml\Models\Descriptors\Endpoint;
 use Litesaml\Models\Descriptors\Idp;
+use Litesaml\Models\Descriptors\PublicKey;
 use Litesaml\Models\Descriptors\Role;
 use Litesaml\Models\Descriptors\Sp;
 use Litesaml\Models\Messages\Attribute;
@@ -40,6 +44,41 @@ class ServiceProviderWrapper
         private Sp $sp,
         private MessageHandler $messageHandler,
     ) {
+    }
+
+    public static function parseMetadata(string $xml): Idp
+    {
+        $entityDescriptor = EntityDescriptor::loadXml($xml);
+
+        $idpDescriptor = $entityDescriptor->getFirstIdpSsoDescriptor();
+        if (!$idpDescriptor) {
+            throw new SamlException('No IdP SSO descriptor found in metadata');
+        }
+
+        $ssoService = $idpDescriptor->getFirstSingleSignOnService();
+        if (!$ssoService?->getLocation() || !$ssoService->getBinding()) {
+            throw new SamlException('No SSO service found in IdP metadata');
+        }
+
+        $sloService = $idpDescriptor->getFirstSingleLogoutService();
+        if (!$sloService?->getLocation() || !$sloService->getBinding()) {
+            throw new SamlException('No SLO service found in IdP metadata');
+        }
+
+        $signing = null;
+        foreach ($idpDescriptor->getAllKeyDescriptors() ?? [] as $keyDescriptor) {
+            if ($keyDescriptor->getUse() === KeyDescriptor::USE_SIGNING && $keyDescriptor->getCertificate()) {
+                $signing = new Certificate(publicKey: new PublicKey($keyDescriptor->getCertificate()->getData()));
+                break;
+            }
+        }
+
+        return new Idp(
+            entityId: $entityDescriptor->getEntityID(),
+            sso: new Endpoint($ssoService->getLocation(), BindingType::fromUrn($ssoService->getBinding())),
+            slo: new Endpoint($sloService->getLocation(), BindingType::fromUrn($sloService->getBinding())),
+            signing: $signing,
+        );
     }
 
     public function generateMetadata(): string
