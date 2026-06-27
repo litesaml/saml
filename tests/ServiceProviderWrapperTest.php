@@ -3,6 +3,7 @@
 namespace Tests;
 
 use Litesaml\Enums\BindingType;
+use Litesaml\Enums\Status;
 use Litesaml\Exceptions\SamlException;
 use Litesaml\Models\Descriptors\Idp;
 use Litesaml\Models\Messages\AuthnRequest;
@@ -79,6 +80,10 @@ class ServiceProviderWrapperTest extends TestCase
         $this->assertEquals('https://idp.localhost', $message->issuer);
         $this->assertEquals('user@example.com', $message->getAttributeByName('email')?->value);
         $this->assertNull($message->getAttributeByName('nonexistent'));
+        $this->assertEquals(Status::SUCCESS, $message->status);
+        $this->assertEquals('user@example.com', $message->nameId);
+        $this->assertEquals('REQUEST-ID', $message->inResponseTo);
+        $this->assertTrue($message->isSuccess());
     }
 
     #[Test]

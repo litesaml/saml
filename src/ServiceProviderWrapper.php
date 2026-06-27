@@ -17,10 +17,11 @@ use LightSaml\Model\Protocol as LightSaml;
 use LightSaml\Model\Protocol\AuthnRequest as LightSamlAuthnRequest;
 use LightSaml\Model\Protocol\LogoutRequest as LightSamlLogoutRequest;
 use LightSaml\Model\Protocol\LogoutResponse as LightSamlLogoutResponse;
-use LightSaml\Model\Protocol\Status;
+use LightSaml\Model\Protocol\Status as LightSamlStatus;
 use LightSaml\Model\Protocol\StatusCode;
 use LightSaml\SamlConstants;
 use Litesaml\Enums\BindingType;
+use Litesaml\Enums\Status;
 use Litesaml\Exceptions\SamlException;
 use Litesaml\Models\Descriptors\Certificate;
 use Litesaml\Models\Descriptors\Endpoint;
@@ -133,8 +134,13 @@ class ServiceProviderWrapper
         }
 
         $attributes = [];
+        $nameId = null;
 
         foreach ($message->getAllAssertions() as $assertion) {
+            if ($nameId === null) {
+                $nameId = $assertion->getSubject()?->getNameID()?->getValue();
+            }
+
             foreach ($assertion->getAllAttributeStatements() as $attributeStatement) {
                 foreach ($attributeStatement->getAllAttributes() as $attribute) {
                     $attributes[] = new Attribute(
@@ -145,11 +151,16 @@ class ServiceProviderWrapper
             }
         }
 
+        $statusUrn = $message->getStatus()?->getStatusCode()?->getValue();
+
         return new AuthnResponse(
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
             signature: $this->messageHandler->extractSignature($message),
             attributes: $attributes,
+            status: $statusUrn !== null ? Status::fromUrn($statusUrn) : null,
+            nameId: $nameId,
+            inResponseTo: $message->getInResponseTo(),
         );
     }
 
@@ -183,7 +194,7 @@ class ServiceProviderWrapper
     public function sendLogoutResponse(Role $recipient): ResponseInterface
     {
         $logoutResponse = (new LightSamlLogoutResponse())
-            ->setStatus(new Status(new StatusCode(SamlConstants::STATUS_SUCCESS)))
+            ->setStatus(new LightSamlStatus(new StatusCode(SamlConstants::STATUS_SUCCESS)))
             ->setID(Helper::generateID())
             ->setIssueInstant(new DateTime())
             ->setDestination($recipient->slo->location)
