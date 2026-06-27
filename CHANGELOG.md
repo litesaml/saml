@@ -4,6 +4,12 @@
 All notable changes to this project will be documented in this file.
 <!--- END HEADER -->
 
+## 1.0.1 (2026-06-28)
+
+### Bug Fixes
+
+* Remove unused imports in `ServiceProviderWrapperTest` — phpcs `no_unused_imports` rule was failing after tests were split into dedicated files
+
 ## 1.0.0 (2026-06-27)
 
 ### Breaking Changes
