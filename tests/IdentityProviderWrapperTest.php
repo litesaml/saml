@@ -59,12 +59,21 @@ class IdentityProviderWrapperTest extends TestCase
     {
         $attributes = [
             new Attribute(name: 'email', values: ['user@example.com']),
+            new Attribute(name: 'roles', values: ['admin', 'editor']),
         ];
 
         $response = $this->makeIdpWrapper()->sendAuthnResponse($this->makeSp(), $attributes);
 
         $this->assertEquals(302, $response->getStatusCode());
         $this->assertStringContainsString('https://sp.localhost/acs', $response->getHeaderLine('Location'));
+
+        parse_str((string) parse_url($response->getHeaderLine('Location'), PHP_URL_QUERY), $params);
+        $authnResponse = $this->makeSpWrapper()->handleAuthnResponse(
+            $this->makeGetRequest('/acs', $params)
+        );
+
+        $this->assertEquals(['user@example.com'], $authnResponse->getAttributeByName('email')?->values);
+        $this->assertEquals(['admin', 'editor'], $authnResponse->getAttributeByName('roles')?->values);
     }
 
     #[Test]

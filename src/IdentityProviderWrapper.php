@@ -11,6 +11,8 @@ use LightSaml\Model\Assertion\Attribute as LightSamlAttribute;
 use LightSaml\Model\Assertion\AttributeStatement;
 use LightSaml\Model\Assertion\Issuer;
 use LightSaml\Model\Assertion\NameID;
+use LightSaml\Model\Assertion\Subject;
+use LightSaml\Model\Assertion\SubjectConfirmation;
 use LightSaml\Model\Metadata\EntityDescriptor;
 use LightSaml\Model\Metadata\IdpSsoDescriptor;
 use LightSaml\Model\Metadata\KeyDescriptor;
@@ -88,20 +90,28 @@ class IdentityProviderWrapper
             ->setDestination($recipient->acs->location)
             ->setIssuer(new Issuer($this->idp->entityId));
 
+        $subject = (new Subject())
+            ->addSubjectConfirmation(
+                (new SubjectConfirmation())->setMethod(SamlConstants::CONFIRMATION_METHOD_BEARER)
+            );
+
+        $attributeStatement = new AttributeStatement();
         foreach ($attributes as $attribute) {
             $lightSamlAttribute = new LightSamlAttribute($attribute->name);
             foreach ($attribute->values as $value) {
                 $lightSamlAttribute->addAttributeValue($value);
             }
-
-            $assertion = (new Assertion())
-                ->setId(Helper::generateID())
-                ->setIssueInstant(new DateTime())
-                ->setIssuer($response->getIssuer())
-                ->addItem((new AttributeStatement())->addAttribute($lightSamlAttribute));
-
-            $response->addAssertion($assertion);
+            $attributeStatement->addAttribute($lightSamlAttribute);
         }
+
+        $assertion = (new Assertion())
+            ->setId(Helper::generateID())
+            ->setIssueInstant(new DateTime())
+            ->setIssuer($response->getIssuer())
+            ->setSubject($subject)
+            ->addItem($attributeStatement);
+
+        $response->addAssertion($assertion);
 
         return $this->messageHandler->send($response, $this->idp, $recipient->acs);
     }
