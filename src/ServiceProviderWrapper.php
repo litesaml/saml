@@ -3,9 +3,16 @@
 namespace Litesaml;
 
 use DateTime;
+use LightSaml\Context\Model\SerializationContext;
+use LightSaml\Credential\X509Certificate;
 use LightSaml\Helper;
 use LightSaml\Model\Assertion\Issuer;
 use LightSaml\Model\Assertion\NameID;
+use LightSaml\Model\Metadata\AssertionConsumerService;
+use LightSaml\Model\Metadata\EntityDescriptor;
+use LightSaml\Model\Metadata\KeyDescriptor;
+use LightSaml\Model\Metadata\SingleLogoutService;
+use LightSaml\Model\Metadata\SpSsoDescriptor;
 use LightSaml\Model\Protocol as LightSaml;
 use LightSaml\Model\Protocol\AuthnRequest as LightSamlAuthnRequest;
 use LightSaml\Model\Protocol\LogoutRequest as LightSamlLogoutRequest;
@@ -33,6 +40,36 @@ class ServiceProviderWrapper
         private Sp $sp,
         private MessageHandler $messageHandler,
     ) {
+    }
+
+    public function generateMetadata(): string
+    {
+        $spSsoDescriptor = new SpSsoDescriptor();
+
+        if ($this->sp->signing) {
+            $cert = (new X509Certificate())->loadPem($this->sp->signing->publicKey->toPem());
+            $spSsoDescriptor->addKeyDescriptor(new KeyDescriptor(KeyDescriptor::USE_SIGNING, $cert));
+        }
+
+        $spSsoDescriptor->addAssertionConsumerService(
+            (new AssertionConsumerService())
+                ->setBinding($this->sp->acs->getBinding())
+                ->setLocation($this->sp->acs->location)
+        );
+
+        $spSsoDescriptor->addSingleLogoutService(
+            (new SingleLogoutService())
+                ->setBinding($this->sp->slo->getBinding())
+                ->setLocation($this->sp->slo->location)
+        );
+
+        $entityDescriptor = (new EntityDescriptor($this->sp->entityId))
+            ->addItem($spSsoDescriptor);
+
+        $context = new SerializationContext();
+        $entityDescriptor->serialize($context->getDocument(), $context);
+
+        return (string) $context->getDocument()->saveXML();
     }
 
     public function sendAuthnRequest(Idp $recipient): ResponseInterface

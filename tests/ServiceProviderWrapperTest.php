@@ -12,6 +12,27 @@ use PHPUnit\Framework\Attributes\Test;
 class ServiceProviderWrapperTest extends TestCase
 {
     #[Test]
+    public function can_generate_metadata(): void
+    {
+        $xml = $this->makeSpWrapper()->generateMetadata();
+
+        $this->assertStringContainsString('EntityDescriptor', $xml);
+        $this->assertStringContainsString('https://sp.localhost', $xml);
+        $this->assertStringContainsString('SPSSODescriptor', $xml);
+        $this->assertStringContainsString('AssertionConsumerService', $xml);
+        $this->assertStringContainsString('SingleLogoutService', $xml);
+    }
+
+    #[Test]
+    public function generate_metadata_includes_key_descriptor_when_signing_configured(): void
+    {
+        $xml = $this->makeSpWrapper($this->makeSpWithSigning())->generateMetadata();
+
+        $this->assertStringContainsString('KeyDescriptor', $xml);
+        $this->assertStringContainsString('use="signing"', $xml);
+    }
+
+    #[Test]
     public function can_send_authn_request(): void
     {
         $response = $this->makeSpWrapper()->sendAuthnRequest($this->makeIdp());
