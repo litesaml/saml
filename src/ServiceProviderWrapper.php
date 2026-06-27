@@ -5,6 +5,7 @@ namespace Litesaml;
 use DateTime;
 use LightSaml\Helper;
 use LightSaml\Model\Assertion\Issuer;
+use LightSaml\Model\Assertion\NameID;
 use LightSaml\Model\Protocol as LightSaml;
 use LightSaml\Model\Protocol\AuthnRequest as LightSamlAuthnRequest;
 use LightSaml\Model\Protocol\LogoutRequest as LightSamlLogoutRequest;
@@ -90,13 +91,14 @@ class ServiceProviderWrapper
         );
     }
 
-    public function sendLogoutRequest(Role $recipient): ResponseInterface
+    public function sendLogoutRequest(Role $recipient, string $nameId): ResponseInterface
     {
         $logoutRequest = (new LightSamlLogoutRequest())
             ->setID(Helper::generateID())
             ->setIssueInstant(new DateTime())
             ->setDestination($recipient->slo->location)
-            ->setIssuer(new Issuer($this->sp->entityId));
+            ->setIssuer(new Issuer($this->sp->entityId))
+            ->setNameID(new NameID($nameId));
 
         return $this->messageHandler->send($logoutRequest, $this->sp, $recipient->slo);
     }

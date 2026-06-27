@@ -60,7 +60,7 @@ class ServiceProviderWrapperTest extends TestCase
     #[Test]
     public function can_send_logout_request(): void
     {
-        $response = $this->makeSpWrapper()->sendLogoutRequest($this->makeIdp());
+        $response = $this->makeSpWrapper()->sendLogoutRequest($this->makeIdp(), 'user@example.com');
 
         $this->assertEquals(302, $response->getStatusCode());
         $this->assertStringContainsString('https://idp.localhost/slo', $response->getHeaderLine('Location'));

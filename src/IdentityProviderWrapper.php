@@ -8,6 +8,7 @@ use LightSaml\Model\Assertion\Assertion;
 use LightSaml\Model\Assertion\Attribute as LightSamlAttribute;
 use LightSaml\Model\Assertion\AttributeStatement;
 use LightSaml\Model\Assertion\Issuer;
+use LightSaml\Model\Assertion\NameID;
 use LightSaml\Model\Protocol as LightSaml;
 use LightSaml\Model\Protocol\AuthnRequest as LightSamlAuthnRequest;
 use LightSaml\Model\Protocol\LogoutRequest as LightSamlLogoutRequest;
@@ -81,13 +82,14 @@ class IdentityProviderWrapper
         );
     }
 
-    public function sendLogoutRequest(Role $recipient): ResponseInterface
+    public function sendLogoutRequest(Role $recipient, string $nameId): ResponseInterface
     {
         $logoutRequest = (new LightSamlLogoutRequest())
             ->setID(Helper::generateID())
             ->setIssueInstant(new DateTime())
             ->setDestination($recipient->slo->location)
-            ->setIssuer(new Issuer($this->idp->entityId));
+            ->setIssuer(new Issuer($this->idp->entityId))
+            ->setNameID(new NameID($nameId));
 
         return $this->messageHandler->send($logoutRequest, $this->idp, $recipient->slo);
     }

@@ -49,7 +49,7 @@ class IdentityProviderWrapperTest extends TestCase
     #[Test]
     public function can_send_logout_request(): void
     {
-        $response = $this->makeIdpWrapper()->sendLogoutRequest($this->makeSp());
+        $response = $this->makeIdpWrapper()->sendLogoutRequest($this->makeSp(), 'user@example.com');
 
         $this->assertEquals(302, $response->getStatusCode());
         $this->assertStringContainsString('https://sp.localhost/slo', $response->getHeaderLine('Location'));

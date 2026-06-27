@@ -31,7 +31,11 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
 
     protected function makeGetRequest(string $uri, array $params): ServerRequestInterface
     {
-        return $this->makeFactory()->createServerRequest('GET', $uri)->withQueryParams($params);
+        if (!str_contains($uri, '?') && !empty($params)) {
+            $uri .= '?' . http_build_query($params);
+        }
+
+        return $this->makeFactory()->createServerRequest('GET', $uri);
     }
 
     protected function makePostRequest(string $uri, array $params): ServerRequestInterface
