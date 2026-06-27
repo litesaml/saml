@@ -23,17 +23,14 @@ use Litesaml\Models\Messages\LogoutRequest;
 use Litesaml\Models\Messages\LogoutResponse;
 use Litesaml\Models\Messages\Message;
 use Litesaml\Support\MessageHandler;
-use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Message\StreamFactoryInterface;
 
 class ServiceProviderWrapper
 {
     public function __construct(
         private Sp $sp,
-        private ResponseFactoryInterface $responseFactory,
-        private StreamFactoryInterface $streamFactory,
+        private MessageHandler $messageHandler,
     ) {}
 
     public function sendAuthnRequest(Idp $recipient): ResponseInterface
@@ -46,12 +43,12 @@ class ServiceProviderWrapper
             ->setDestination($recipient->sso->location)
             ->setIssuer(new Issuer($this->sp->entityId));
 
-        return MessageHandler::send($authnRequest, $this->sp, $recipient->sso, $this->responseFactory, $this->streamFactory);
+        return $this->messageHandler->send($authnRequest, $this->sp, $recipient->sso);
     }
 
     public function handleAuthnResponse(ServerRequestInterface $request): AuthnResponse
     {
-        $message = MessageHandler::unpack($request);
+        $message = $this->messageHandler->unpack($request);
 
         if (!$message instanceof LightSaml\Response) {
             throw new SamlException('Wrong request received');
@@ -73,14 +70,14 @@ class ServiceProviderWrapper
         return new AuthnResponse(
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
-            signature: MessageHandler::extractSignature($message),
+            signature: $this->messageHandler->extractSignature($message),
             attributes: $attributes,
         );
     }
 
     public function handleAuthnRequest(ServerRequestInterface $request): AuthnRequest
     {
-        $message = MessageHandler::unpack($request);
+        $message = $this->messageHandler->unpack($request);
 
         if (!$message instanceof LightSaml\AuthnRequest) {
             throw new SamlException('Wrong request received');
@@ -89,7 +86,7 @@ class ServiceProviderWrapper
         return new AuthnRequest(
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
-            signature: MessageHandler::extractSignature($message),
+            signature: $this->messageHandler->extractSignature($message),
         );
     }
 
@@ -101,7 +98,7 @@ class ServiceProviderWrapper
             ->setDestination($recipient->slo->location)
             ->setIssuer(new Issuer($this->sp->entityId));
 
-        return MessageHandler::send($logoutRequest, $this->sp, $recipient->slo, $this->responseFactory, $this->streamFactory);
+        return $this->messageHandler->send($logoutRequest, $this->sp, $recipient->slo);
     }
 
     public function sendLogoutResponse(Role $recipient): ResponseInterface
@@ -113,12 +110,12 @@ class ServiceProviderWrapper
             ->setDestination($recipient->slo->location)
             ->setIssuer(new Issuer($this->sp->entityId));
 
-        return MessageHandler::send($logoutResponse, $this->sp, $recipient->slo, $this->responseFactory, $this->streamFactory);
+        return $this->messageHandler->send($logoutResponse, $this->sp, $recipient->slo);
     }
 
     public function handleLogoutRequest(ServerRequestInterface $request): LogoutRequest
     {
-        $message = MessageHandler::unpack($request);
+        $message = $this->messageHandler->unpack($request);
 
         if (!$message instanceof LightSaml\LogoutRequest) {
             throw new SamlException('Wrong request received');
@@ -127,13 +124,13 @@ class ServiceProviderWrapper
         return new LogoutRequest(
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
-            signature: MessageHandler::extractSignature($message),
+            signature: $this->messageHandler->extractSignature($message),
         );
     }
 
     public function handleLogoutResponse(ServerRequestInterface $request): LogoutResponse
     {
-        $message = MessageHandler::unpack($request);
+        $message = $this->messageHandler->unpack($request);
 
         if (!$message instanceof LightSaml\LogoutResponse) {
             throw new SamlException('Wrong request received');
@@ -142,12 +139,12 @@ class ServiceProviderWrapper
         return new LogoutResponse(
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
-            signature: MessageHandler::extractSignature($message),
+            signature: $this->messageHandler->extractSignature($message),
         );
     }
 
     public function validateSignature(Message $message, Role $issuer): bool
     {
-        return MessageHandler::validateSignature($message, $issuer);
+        return $this->messageHandler->validateSignature($message, $issuer);
     }
 }

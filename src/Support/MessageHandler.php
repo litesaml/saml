@@ -22,17 +22,20 @@ use Psr\Http\Message\StreamFactoryInterface;
 
 final class MessageHandler
 {
-    public static function send(
+    public function __construct(
+        private ResponseFactoryInterface $responseFactory,
+        private StreamFactoryInterface $streamFactory,
+    ) {}
+
+    public function send(
         SamlMessage $message,
         Role $issuer,
         Endpoint $endpoint,
-        ResponseFactoryInterface $responseFactory,
-        StreamFactoryInterface $streamFactory,
     ): ResponseInterface {
         $messageContext = new MessageContext();
         $messageContext->setMessage($message);
 
-        $bindingFactory = new BindingFactory(responseFactory: $responseFactory, streamFactory: $streamFactory);
+        $bindingFactory = new BindingFactory(responseFactory: $this->responseFactory, streamFactory: $this->streamFactory);
         $binding = $bindingFactory->create($endpoint->getBinding());
 
         if ($issuer->signing) {
@@ -48,7 +51,7 @@ final class MessageHandler
         return $binding->send($messageContext);
     }
 
-    public static function unpack(ServerRequestInterface $request): SamlMessage
+    public function unpack(ServerRequestInterface $request): SamlMessage
     {
         $bindingFactory = new BindingFactory();
         $binding = $bindingFactory->getBindingByRequest($request);
@@ -65,7 +68,7 @@ final class MessageHandler
         return $message;
     }
 
-    public static function extractSignature(SamlMessage $message): ?Signature
+    public function extractSignature(SamlMessage $message): ?Signature
     {
         /** @var SignatureStringReader $signatureReader */
         $signatureReader = $message->getSignature();
@@ -81,7 +84,7 @@ final class MessageHandler
         );
     }
 
-    public static function validateSignature(Message $message, Role $issuer): bool
+    public function validateSignature(Message $message, Role $issuer): bool
     {
         if (!$message->signature || !$issuer->signing) {
             return false;

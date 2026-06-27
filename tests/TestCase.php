@@ -11,6 +11,7 @@ use Litesaml\Models\Descriptors\PrivateKey;
 use Litesaml\Models\Descriptors\PublicKey;
 use Litesaml\Models\Descriptors\Sp;
 use Litesaml\ServiceProviderWrapper;
+use Litesaml\Support\MessageHandler;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Psr\Http\Message\ServerRequestInterface;
 
@@ -69,17 +70,20 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
         );
     }
 
-    protected function makeIdpWrapper(?Idp $idp = null): IdentityProviderWrapper
+    protected function makeMessageHandler(): MessageHandler
     {
         $f = $this->makeFactory();
 
-        return new IdentityProviderWrapper($idp ?? $this->makeIdp(), $f, $f);
+        return new MessageHandler($f, $f);
+    }
+
+    protected function makeIdpWrapper(?Idp $idp = null): IdentityProviderWrapper
+    {
+        return new IdentityProviderWrapper($idp ?? $this->makeIdp(), $this->makeMessageHandler());
     }
 
     protected function makeSpWrapper(?Sp $sp = null): ServiceProviderWrapper
     {
-        $f = $this->makeFactory();
-
-        return new ServiceProviderWrapper($sp ?? $this->makeSp(), $f, $f);
+        return new ServiceProviderWrapper($sp ?? $this->makeSp(), $this->makeMessageHandler());
     }
 }

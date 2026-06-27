@@ -26,17 +26,14 @@ use Litesaml\Models\Messages\LogoutRequest;
 use Litesaml\Models\Messages\LogoutResponse;
 use Litesaml\Models\Messages\Message;
 use Litesaml\Support\MessageHandler;
-use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Message\StreamFactoryInterface;
 
 class IdentityProviderWrapper
 {
     public function __construct(
         private Idp $idp,
-        private ResponseFactoryInterface $responseFactory,
-        private StreamFactoryInterface $streamFactory,
+        private MessageHandler $messageHandler,
     ) {}
 
     /**
@@ -66,12 +63,12 @@ class IdentityProviderWrapper
             $response->addAssertion($assertion);
         }
 
-        return MessageHandler::send($response, $this->idp, $recipient->acs, $this->responseFactory, $this->streamFactory);
+        return $this->messageHandler->send($response, $this->idp, $recipient->acs);
     }
 
     public function handleAuthnRequest(ServerRequestInterface $request): AuthnRequest
     {
-        $message = MessageHandler::unpack($request);
+        $message = $this->messageHandler->unpack($request);
 
         if (!$message instanceof LightSamlAuthnRequest) {
             throw new SamlException('Wrong request received');
@@ -80,7 +77,7 @@ class IdentityProviderWrapper
         return new AuthnRequest(
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
-            signature: MessageHandler::extractSignature($message),
+            signature: $this->messageHandler->extractSignature($message),
         );
     }
 
@@ -92,7 +89,7 @@ class IdentityProviderWrapper
             ->setDestination($recipient->slo->location)
             ->setIssuer(new Issuer($this->idp->entityId));
 
-        return MessageHandler::send($logoutRequest, $this->idp, $recipient->slo, $this->responseFactory, $this->streamFactory);
+        return $this->messageHandler->send($logoutRequest, $this->idp, $recipient->slo);
     }
 
     public function sendLogoutResponse(Role $recipient): ResponseInterface
@@ -104,12 +101,12 @@ class IdentityProviderWrapper
             ->setDestination($recipient->slo->location)
             ->setIssuer(new Issuer($this->idp->entityId));
 
-        return MessageHandler::send($logoutResponse, $this->idp, $recipient->slo, $this->responseFactory, $this->streamFactory);
+        return $this->messageHandler->send($logoutResponse, $this->idp, $recipient->slo);
     }
 
     public function handleLogoutRequest(ServerRequestInterface $request): LogoutRequest
     {
-        $message = MessageHandler::unpack($request);
+        $message = $this->messageHandler->unpack($request);
 
         if (!$message instanceof LightSaml\LogoutRequest) {
             throw new SamlException('Wrong request received');
@@ -118,13 +115,13 @@ class IdentityProviderWrapper
         return new LogoutRequest(
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
-            signature: MessageHandler::extractSignature($message),
+            signature: $this->messageHandler->extractSignature($message),
         );
     }
 
     public function handleLogoutResponse(ServerRequestInterface $request): LogoutResponse
     {
-        $message = MessageHandler::unpack($request);
+        $message = $this->messageHandler->unpack($request);
 
         if (!$message instanceof LightSaml\LogoutResponse) {
             throw new SamlException('Wrong request received');
@@ -133,12 +130,12 @@ class IdentityProviderWrapper
         return new LogoutResponse(
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
-            signature: MessageHandler::extractSignature($message),
+            signature: $this->messageHandler->extractSignature($message),
         );
     }
 
     public function validateSignature(Message $message, Role $issuer): bool
     {
-        return MessageHandler::validateSignature($message, $issuer);
+        return $this->messageHandler->validateSignature($message, $issuer);
     }
 }
