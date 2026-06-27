@@ -182,7 +182,7 @@ class ServiceProviderWrapper
         );
     }
 
-    public function sendLogoutRequest(Role $recipient, string $nameId, ?string $relayState = null): ResponseInterface
+    public function sendLogoutRequest(Role $recipient, string $nameId, ?string $relayState = null, ?string $sessionIndex = null): ResponseInterface
     {
         $logoutRequest = (new LightSamlLogoutRequest())
             ->setID(Helper::generateID())
@@ -190,6 +190,7 @@ class ServiceProviderWrapper
             ->setDestination($recipient->slo->location)
             ->setIssuer(new Issuer($this->sp->entityId))
             ->setNameID(new NameID($nameId))
+            ->setSessionIndex($sessionIndex)
             ->setRelayState($relayState);
 
         return $this->messageHandler->send($logoutRequest, $this->sp, $recipient->slo);
@@ -219,6 +220,8 @@ class ServiceProviderWrapper
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
             signature: $this->messageHandler->extractSignature($message),
+            nameId: $message->getNameID()->getValue(),
+            sessionIndex: $message->getSessionIndex(),
             relayState: $message->getRelayState(),
         );
     }

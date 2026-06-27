@@ -95,6 +95,8 @@ class IdentityProviderWrapperTest extends TestCase
         $this->assertInstanceOf(LogoutRequest::class, $message);
         $this->assertEquals('LOGOUT-REQUEST-ID', $message->id);
         $this->assertEquals('https://idp.localhost', $message->issuer);
+        $this->assertEquals('user@example.com', $message->nameId);
+        $this->assertEquals('SESSION-INDEX-ID', $message->sessionIndex);
     }
 
     #[Test]
