@@ -9,6 +9,7 @@ use LightSaml\Helper;
 use LightSaml\Model\Assertion\Assertion;
 use LightSaml\Model\Assertion\Attribute as LightSamlAttribute;
 use LightSaml\Model\Assertion\AttributeStatement;
+use LightSaml\Model\Assertion\EncryptedAssertionWriter;
 use LightSaml\Model\Assertion\Issuer;
 use LightSaml\Model\Assertion\NameID;
 use LightSaml\Model\Assertion\Subject;
@@ -37,6 +38,7 @@ use Litesaml\Models\Messages\Message;
 use Litesaml\Support\MessageHandler;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use RobRichards\XMLSecLibs\XMLSecurityKey;
 
 class IdentityProviderWrapper
 {
@@ -90,28 +92,67 @@ class IdentityProviderWrapper
             ->setDestination($recipient->acs->location)
             ->setIssuer(new Issuer($this->idp->entityId));
 
-        $subject = (new Subject())
-            ->addSubjectConfirmation(
-                (new SubjectConfirmation())->setMethod(SamlConstants::CONFIRMATION_METHOD_BEARER)
-            );
+        $plainAttributes = array_values(array_filter($attributes, fn ($a) => !$a->encrypted));
+        $encryptedAttributes = array_values(array_filter($attributes, fn ($a) => $a->encrypted));
 
-        $attributeStatement = new AttributeStatement();
-        foreach ($attributes as $attribute) {
-            $lightSamlAttribute = new LightSamlAttribute($attribute->name);
-            foreach ($attribute->values as $value) {
-                $lightSamlAttribute->addAttributeValue($value);
+        if (!empty($plainAttributes) || empty($encryptedAttributes)) {
+            $attributeStatement = new AttributeStatement();
+            foreach ($plainAttributes as $attribute) {
+                $lightSamlAttribute = new LightSamlAttribute($attribute->name);
+                foreach ($attribute->values as $value) {
+                    $lightSamlAttribute->addAttributeValue($value);
+                }
+                $attributeStatement->addAttribute($lightSamlAttribute);
             }
-            $attributeStatement->addAttribute($lightSamlAttribute);
+
+            $subject = (new Subject())
+                ->addSubjectConfirmation(
+                    (new SubjectConfirmation())->setMethod(SamlConstants::CONFIRMATION_METHOD_BEARER)
+                );
+
+            $response->addAssertion(
+                (new Assertion())
+                    ->setId(Helper::generateID())
+                    ->setIssueInstant(new DateTime())
+                    ->setIssuer($response->getIssuer())
+                    ->setSubject($subject)
+                    ->addItem($attributeStatement)
+            );
         }
 
-        $assertion = (new Assertion())
-            ->setId(Helper::generateID())
-            ->setIssueInstant(new DateTime())
-            ->setIssuer($response->getIssuer())
-            ->setSubject($subject)
-            ->addItem($attributeStatement);
+        if (!empty($encryptedAttributes)) {
+            if ($recipient->encryption === null) {
+                throw new SamlException('No encryption certificate configured on recipient SP');
+            }
 
-        $response->addAssertion($assertion);
+            $attributeStatement = new AttributeStatement();
+            foreach ($encryptedAttributes as $attribute) {
+                $lightSamlAttribute = new LightSamlAttribute($attribute->name);
+                foreach ($attribute->values as $value) {
+                    $lightSamlAttribute->addAttributeValue($value);
+                }
+                $attributeStatement->addAttribute($lightSamlAttribute);
+            }
+
+            $subject = (new Subject())
+                ->addSubjectConfirmation(
+                    (new SubjectConfirmation())->setMethod(SamlConstants::CONFIRMATION_METHOD_BEARER)
+                );
+
+            $assertion = (new Assertion())
+                ->setId(Helper::generateID())
+                ->setIssueInstant(new DateTime())
+                ->setIssuer($response->getIssuer())
+                ->setSubject($subject)
+                ->addItem($attributeStatement);
+
+            $encKey = new XMLSecurityKey(XMLSecurityKey::RSA_1_5, ['type' => 'public']);
+            $encKey->loadKey($recipient->encryption->publicKey->toPem(), false, true);
+
+            $writer = new EncryptedAssertionWriter();
+            $writer->encrypt($assertion, $encKey);
+            $response->addEncryptedAssertion($writer);
+        }
 
         return $this->messageHandler->send($response, $this->idp, $recipient->acs);
     }

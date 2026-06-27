@@ -3,9 +3,11 @@
 namespace Litesaml;
 
 use DateTime;
+use LightSaml\Context\Model\DeserializationContext;
 use LightSaml\Context\Model\SerializationContext;
 use LightSaml\Credential\X509Certificate;
 use LightSaml\Helper;
+use LightSaml\Model\Assertion\EncryptedAssertionReader;
 use LightSaml\Model\Assertion\Issuer;
 use LightSaml\Model\Assertion\NameID;
 use LightSaml\Model\Metadata\AssertionConsumerService;
@@ -38,6 +40,7 @@ use Litesaml\Models\Messages\Message;
 use Litesaml\Support\MessageHandler;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use RobRichards\XMLSecLibs\XMLSecurityKey;
 
 class ServiceProviderWrapper
 {
@@ -89,6 +92,11 @@ class ServiceProviderWrapper
         if ($this->sp->signing) {
             $cert = (new X509Certificate())->loadPem($this->sp->signing->publicKey->toPem());
             $spSsoDescriptor->addKeyDescriptor(new KeyDescriptor(KeyDescriptor::USE_SIGNING, $cert));
+        }
+
+        if ($this->sp->encryption) {
+            $cert = (new X509Certificate())->loadPem($this->sp->encryption->publicKey->toPem());
+            $spSsoDescriptor->addKeyDescriptor(new KeyDescriptor(KeyDescriptor::USE_ENCRYPTION, $cert));
         }
 
         $spSsoDescriptor->addAssertionConsumerService(
@@ -147,6 +155,35 @@ class ServiceProviderWrapper
                     $attributes[] = new Attribute(
                         name: $attribute->getName(),
                         values: $attribute->getAllAttributeValues() ?? [],
+                    );
+                }
+            }
+        }
+
+        foreach ($message->getAllEncryptedAssertions() as $encryptedAssertion) {
+            if (!$encryptedAssertion instanceof EncryptedAssertionReader) {
+                continue;
+            }
+
+            if ($this->sp->encryption === null || $this->sp->encryption->privateKey === null) {
+                throw new SamlException('No encryption certificate configured to decrypt assertion');
+            }
+
+            $key = new XMLSecurityKey(XMLSecurityKey::RSA_1_5, ['type' => 'private']);
+            $key->loadKey($this->sp->encryption->privateKey->toPem());
+
+            $assertion = $encryptedAssertion->decryptAssertion($key, new DeserializationContext());
+
+            if ($nameId === null) {
+                $nameId = $assertion->getSubject()?->getNameID()?->getValue();
+            }
+
+            foreach ($assertion->getAllAttributeStatements() as $attributeStatement) {
+                foreach ($attributeStatement->getAllAttributes() as $attribute) {
+                    $attributes[] = new Attribute(
+                        name: $attribute->getName(),
+                        values: $attribute->getAllAttributeValues() ?? [],
+                        encrypted: true,
                     );
                 }
             }

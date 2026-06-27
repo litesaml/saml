@@ -17,6 +17,48 @@ use PHPUnit\Framework\Attributes\Test;
 class ServiceProviderWrapperTest extends TestCase
 {
     #[Test]
+    public function generate_metadata_includes_encryption_key_descriptor(): void
+    {
+        $xml = $this->makeSpWrapper($this->makeSpWithEncryption())->generateMetadata();
+
+        $this->assertStringContainsString('use="encryption"', $xml);
+    }
+
+    #[Test]
+    public function handle_authn_response_decrypts_encrypted_assertions(): void
+    {
+        $sp = $this->makeSpWithEncryption();
+        $attributes = [
+            new Attribute(name: 'email', values: ['user@example.com']),
+            new Attribute(name: 'roles', values: ['admin'], encrypted: true),
+        ];
+
+        $response = $this->makeIdpWrapper()->sendAuthnResponse($sp, $attributes);
+        parse_str((string) parse_url($response->getHeaderLine('Location'), PHP_URL_QUERY), $params);
+        $message = $this->makeSpWrapper($sp)->handleAuthnResponse($this->makeGetRequest('/acs', $params));
+
+        $this->assertInstanceOf(AuthnResponse::class, $message);
+        $this->assertEquals(['user@example.com'], $message->getAttributeByName('email')?->values);
+        $this->assertFalse($message->getAttributeByName('email')?->encrypted);
+        $this->assertEquals(['admin'], $message->getAttributeByName('roles')?->values);
+        $this->assertTrue($message->getAttributeByName('roles')?->encrypted);
+    }
+
+    #[Test]
+    public function handle_authn_response_throws_when_encrypted_assertion_without_sp_encryption_cert(): void
+    {
+        $this->expectException(SamlException::class);
+        $this->expectExceptionMessage('No encryption certificate configured to decrypt assertion');
+
+        $sp = $this->makeSpWithEncryption();
+        $attributes = [new Attribute(name: 'roles', values: ['admin'], encrypted: true)];
+        $response = $this->makeIdpWrapper()->sendAuthnResponse($sp, $attributes);
+
+        parse_str((string) parse_url($response->getHeaderLine('Location'), PHP_URL_QUERY), $params);
+        $this->makeSpWrapper()->handleAuthnResponse($this->makeGetRequest('/acs', $params));
+    }
+
+    #[Test]
     public function can_parse_metadata(): void
     {
         $xml = file_get_contents(__DIR__ . '/fixtures/idp_metadata.xml');

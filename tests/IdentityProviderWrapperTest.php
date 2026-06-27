@@ -5,6 +5,7 @@ namespace Tests;
 use Litesaml\Exceptions\SamlException;
 use Litesaml\Models\Messages\Attribute;
 use Litesaml\Models\Messages\AuthnRequest;
+use Litesaml\Models\Messages\AuthnResponse;
 use Litesaml\Models\Messages\LogoutRequest;
 use Litesaml\Models\Messages\LogoutResponse;
 use PHPUnit\Framework\Attributes\Test;
@@ -128,6 +129,40 @@ class IdentityProviderWrapperTest extends TestCase
         $message = $this->makeIdpWrapper()->handleAuthnRequest($request);
 
         $this->assertFalse($this->makeIdpWrapper()->validateSignature($message, $this->makeSp()));
+    }
+
+    #[Test]
+    public function send_authn_response_with_encrypted_attribute(): void
+    {
+        $attributes = [
+            new Attribute(name: 'email', values: ['user@example.com']),
+            new Attribute(name: 'roles', values: ['admin'], encrypted: true),
+        ];
+
+        $sp = $this->makeSpWithEncryption();
+        $response = $this->makeIdpWrapper()->sendAuthnResponse($sp, $attributes);
+
+        parse_str((string) parse_url($response->getHeaderLine('Location'), PHP_URL_QUERY), $params);
+        $authnResponse = $this->makeSpWrapper($sp)->handleAuthnResponse(
+            $this->makeGetRequest('/acs', $params)
+        );
+
+        $this->assertInstanceOf(AuthnResponse::class, $authnResponse);
+        $this->assertEquals(['user@example.com'], $authnResponse->getAttributeByName('email')?->values);
+        $this->assertFalse($authnResponse->getAttributeByName('email')?->encrypted);
+        $this->assertEquals(['admin'], $authnResponse->getAttributeByName('roles')?->values);
+        $this->assertTrue($authnResponse->getAttributeByName('roles')?->encrypted);
+    }
+
+    #[Test]
+    public function send_authn_response_throws_when_encrypted_attribute_but_no_sp_encryption_cert(): void
+    {
+        $this->expectException(SamlException::class);
+        $this->expectExceptionMessage('No encryption certificate configured on recipient SP');
+
+        $attributes = [new Attribute(name: 'roles', values: ['admin'], encrypted: true)];
+
+        $this->makeIdpWrapper()->sendAuthnResponse($this->makeSp(), $attributes);
     }
 
     #[Test]

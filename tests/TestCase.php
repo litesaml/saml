@@ -76,6 +76,19 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
         );
     }
 
+    protected function makeSpWithEncryption(): Sp
+    {
+        return new Sp(
+            entityId: 'https://sp.localhost',
+            acs: new Endpoint('https://sp.localhost/acs', BindingType::REDIRECT),
+            slo: new Endpoint('https://sp.localhost/slo', BindingType::REDIRECT),
+            encryption: new Certificate(
+                publicKey: new PublicKey(file_get_contents(__DIR__ . '/fixtures/signing_cert.pem')),
+                privateKey: new PrivateKey(file_get_contents(__DIR__ . '/fixtures/signing_key.pem')),
+            ),
+        );
+    }
+
     protected function makeIdpWithSigning(): Idp
     {
         return new Idp(

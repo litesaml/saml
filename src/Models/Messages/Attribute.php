@@ -10,6 +10,7 @@ readonly class Attribute
     public function __construct(
         public string $name,
         public array $values,
+        public bool $encrypted = false,
     ) {
     }
 }
