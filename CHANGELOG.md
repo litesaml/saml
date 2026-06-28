@@ -4,6 +4,22 @@
 All notable changes to this project will be documented in this file.
 <!--- END HEADER -->
 
+## 2.0.0 (2026-06-28)
+
+### Breaking Changes
+
+* `Role` renamed to `Entity` — all type hints referencing `Role` must be updated to `Entity`
+* `ServiceProviderWrapper::parseMetadata()` removed — use `MetadataParser::parse()` instead
+
+### Features
+
+* `MetadataParser::parse()` — parses IdP metadata, SP metadata, and federation `EntitiesDescriptor` from a single entry point
+* `EntityList` — typed wrapper returned when an `EntitiesDescriptor` contains multiple entities
+
+### Tests
+
+* Fixture-based coverage for single IdP, single SP, IdP list, SP list, and mixed IdP+SP federation metadata
+
 ## 1.0.1 (2026-06-28)
 
 ### Bug Fixes
