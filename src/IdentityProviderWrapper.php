@@ -27,8 +27,8 @@ use LightSaml\Model\Protocol\Status;
 use LightSaml\Model\Protocol\StatusCode;
 use LightSaml\SamlConstants;
 use Litesaml\Exceptions\SamlException;
+use Litesaml\Models\Descriptors\Entity;
 use Litesaml\Models\Descriptors\Idp;
-use Litesaml\Models\Descriptors\Role;
 use Litesaml\Models\Descriptors\Sp;
 use Litesaml\Models\Messages\Attribute;
 use Litesaml\Models\Messages\AuthnRequest;
@@ -157,7 +157,7 @@ class IdentityProviderWrapper
         return $this->messageHandler->send($response, $this->idp, $recipient->acs);
     }
 
-    public function handleAuthnRequest(ServerRequestInterface $request, bool $validate = false, ?Role $issuer = null): AuthnRequest
+    public function handleAuthnRequest(ServerRequestInterface $request, bool $validate = false, ?Entity $issuer = null): AuthnRequest
     {
         $message = $this->messageHandler->unpack($request);
 
@@ -177,7 +177,7 @@ class IdentityProviderWrapper
         return $dto;
     }
 
-    public function sendLogoutRequest(Role $recipient, string $nameId, ?string $relayState = null, ?string $sessionIndex = null): ResponseInterface
+    public function sendLogoutRequest(Entity $recipient, string $nameId, ?string $relayState = null, ?string $sessionIndex = null): ResponseInterface
     {
         $logoutRequest = (new LightSamlLogoutRequest())
             ->setID(Helper::generateID())
@@ -191,7 +191,7 @@ class IdentityProviderWrapper
         return $this->messageHandler->send($logoutRequest, $this->idp, $recipient->slo);
     }
 
-    public function sendLogoutResponse(Role $recipient): ResponseInterface
+    public function sendLogoutResponse(Entity $recipient): ResponseInterface
     {
         $logoutResponse = (new LightSamlLogoutResponse())
             ->setStatus(new Status(new StatusCode(SamlConstants::STATUS_SUCCESS)))
@@ -203,7 +203,7 @@ class IdentityProviderWrapper
         return $this->messageHandler->send($logoutResponse, $this->idp, $recipient->slo);
     }
 
-    public function handleLogoutRequest(ServerRequestInterface $request, bool $validate = false, ?Role $issuer = null): LogoutRequest
+    public function handleLogoutRequest(ServerRequestInterface $request, bool $validate = false, ?Entity $issuer = null): LogoutRequest
     {
         $message = $this->messageHandler->unpack($request);
 
@@ -225,7 +225,7 @@ class IdentityProviderWrapper
         return $dto;
     }
 
-    public function handleLogoutResponse(ServerRequestInterface $request, bool $validate = false, ?Role $issuer = null): LogoutResponse
+    public function handleLogoutResponse(ServerRequestInterface $request, bool $validate = false, ?Entity $issuer = null): LogoutResponse
     {
         $message = $this->messageHandler->unpack($request);
 
@@ -245,12 +245,12 @@ class IdentityProviderWrapper
         return $dto;
     }
 
-    public function validateSignature(Message $message, Role $issuer): bool
+    public function validateSignature(Message $message, Entity $issuer): bool
     {
         return $this->messageHandler->validateSignature($message, $issuer);
     }
 
-    private function validateIfRequested(Message $dto, bool $validate, ?Role $issuer): void
+    private function validateIfRequested(Message $dto, bool $validate, ?Entity $issuer): void
     {
         if (!$validate) {
             return;

@@ -2,7 +2,7 @@
 
 namespace Litesaml\Models\Descriptors;
 
-abstract readonly class Role
+abstract readonly class Entity
 {
     public function __construct(
         public string $entityId,

@@ -2,7 +2,7 @@
 
 namespace Litesaml\Models\Descriptors;
 
-readonly class Idp extends Role
+readonly class Idp extends Entity
 {
     public function __construct(
         string $entityId,

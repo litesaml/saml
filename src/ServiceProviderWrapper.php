@@ -22,14 +22,10 @@ use LightSaml\Model\Protocol\LogoutResponse as LightSamlLogoutResponse;
 use LightSaml\Model\Protocol\Status as LightSamlStatus;
 use LightSaml\Model\Protocol\StatusCode;
 use LightSaml\SamlConstants;
-use Litesaml\Enums\BindingType;
 use Litesaml\Enums\Status;
 use Litesaml\Exceptions\SamlException;
-use Litesaml\Models\Descriptors\Certificate;
-use Litesaml\Models\Descriptors\Endpoint;
+use Litesaml\Models\Descriptors\Entity;
 use Litesaml\Models\Descriptors\Idp;
-use Litesaml\Models\Descriptors\PublicKey;
-use Litesaml\Models\Descriptors\Role;
 use Litesaml\Models\Descriptors\Sp;
 use Litesaml\Models\Messages\Attribute;
 use Litesaml\Models\Messages\AuthnRequest;
@@ -48,41 +44,6 @@ class ServiceProviderWrapper
         private Sp $sp,
         private MessageHandler $messageHandler,
     ) {
-    }
-
-    public static function parseMetadata(string $xml): Idp
-    {
-        $entityDescriptor = EntityDescriptor::loadXml($xml);
-
-        $idpDescriptor = $entityDescriptor->getFirstIdpSsoDescriptor();
-        if (!$idpDescriptor) {
-            throw new SamlException('No IdP SSO descriptor found in metadata');
-        }
-
-        $ssoService = $idpDescriptor->getFirstSingleSignOnService();
-        if (!$ssoService?->getLocation() || !$ssoService->getBinding()) {
-            throw new SamlException('No SSO service found in IdP metadata');
-        }
-
-        $sloService = $idpDescriptor->getFirstSingleLogoutService();
-        if (!$sloService?->getLocation() || !$sloService->getBinding()) {
-            throw new SamlException('No SLO service found in IdP metadata');
-        }
-
-        $signing = null;
-        foreach ($idpDescriptor->getAllKeyDescriptors() ?? [] as $keyDescriptor) {
-            if ($keyDescriptor->getUse() === KeyDescriptor::USE_SIGNING && $keyDescriptor->getCertificate()) {
-                $signing = new Certificate(publicKey: new PublicKey($keyDescriptor->getCertificate()->getData()));
-                break;
-            }
-        }
-
-        return new Idp(
-            entityId: $entityDescriptor->getEntityID(),
-            sso: new Endpoint($ssoService->getLocation(), BindingType::fromUrn($ssoService->getBinding())),
-            slo: new Endpoint($sloService->getLocation(), BindingType::fromUrn($sloService->getBinding())),
-            signing: $signing,
-        );
     }
 
     public function generateMetadata(): string
@@ -134,7 +95,7 @@ class ServiceProviderWrapper
         return $this->messageHandler->send($authnRequest, $this->sp, $recipient->sso);
     }
 
-    public function handleAuthnResponse(ServerRequestInterface $request, bool $validate = false, ?Role $issuer = null): AuthnResponse
+    public function handleAuthnResponse(ServerRequestInterface $request, bool $validate = false, ?Entity $issuer = null): AuthnResponse
     {
         $message = $this->messageHandler->unpack($request);
 
@@ -207,7 +168,7 @@ class ServiceProviderWrapper
         return $dto;
     }
 
-    public function handleAuthnRequest(ServerRequestInterface $request, bool $validate = false, ?Role $issuer = null): AuthnRequest
+    public function handleAuthnRequest(ServerRequestInterface $request, bool $validate = false, ?Entity $issuer = null): AuthnRequest
     {
         $message = $this->messageHandler->unpack($request);
 
@@ -227,7 +188,7 @@ class ServiceProviderWrapper
         return $dto;
     }
 
-    public function sendLogoutRequest(Role $recipient, string $nameId, ?string $relayState = null, ?string $sessionIndex = null): ResponseInterface
+    public function sendLogoutRequest(Entity $recipient, string $nameId, ?string $relayState = null, ?string $sessionIndex = null): ResponseInterface
     {
         $logoutRequest = (new LightSamlLogoutRequest())
             ->setID(Helper::generateID())
@@ -241,7 +202,7 @@ class ServiceProviderWrapper
         return $this->messageHandler->send($logoutRequest, $this->sp, $recipient->slo);
     }
 
-    public function sendLogoutResponse(Role $recipient): ResponseInterface
+    public function sendLogoutResponse(Entity $recipient): ResponseInterface
     {
         $logoutResponse = (new LightSamlLogoutResponse())
             ->setStatus(new LightSamlStatus(new StatusCode(SamlConstants::STATUS_SUCCESS)))
@@ -253,7 +214,7 @@ class ServiceProviderWrapper
         return $this->messageHandler->send($logoutResponse, $this->sp, $recipient->slo);
     }
 
-    public function handleLogoutRequest(ServerRequestInterface $request, bool $validate = false, ?Role $issuer = null): LogoutRequest
+    public function handleLogoutRequest(ServerRequestInterface $request, bool $validate = false, ?Entity $issuer = null): LogoutRequest
     {
         $message = $this->messageHandler->unpack($request);
 
@@ -275,7 +236,7 @@ class ServiceProviderWrapper
         return $dto;
     }
 
-    public function handleLogoutResponse(ServerRequestInterface $request, bool $validate = false, ?Role $issuer = null): LogoutResponse
+    public function handleLogoutResponse(ServerRequestInterface $request, bool $validate = false, ?Entity $issuer = null): LogoutResponse
     {
         $message = $this->messageHandler->unpack($request);
 
@@ -295,12 +256,12 @@ class ServiceProviderWrapper
         return $dto;
     }
 
-    public function validateSignature(Message $message, Role $issuer): bool
+    public function validateSignature(Message $message, Entity $issuer): bool
     {
         return $this->messageHandler->validateSignature($message, $issuer);
     }
 
-    private function validateIfRequested(Message $dto, bool $validate, ?Role $issuer): void
+    private function validateIfRequested(Message $dto, bool $validate, ?Entity $issuer): void
     {
         if (!$validate) {
             return;

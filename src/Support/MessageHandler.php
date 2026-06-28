@@ -12,7 +12,7 @@ use LightSaml\Model\XmlDSig\SignatureStringReader;
 use LightSaml\Model\XmlDSig\SignatureWriter;
 use Litesaml\Exceptions\SamlException;
 use Litesaml\Models\Descriptors\Endpoint;
-use Litesaml\Models\Descriptors\Role;
+use Litesaml\Models\Descriptors\Entity;
 use Litesaml\Models\Messages\Message;
 use Litesaml\Models\Messages\Signature;
 use Psr\Http\Message\ResponseFactoryInterface;
@@ -30,7 +30,7 @@ final class MessageHandler
 
     public function send(
         SamlMessage $message,
-        Role $issuer,
+        Entity $issuer,
         Endpoint $endpoint,
     ): ResponseInterface {
         $messageContext = new MessageContext();
@@ -84,7 +84,7 @@ final class MessageHandler
         );
     }
 
-    public function validateSignature(Message $message, Role $issuer): bool
+    public function validateSignature(Message $message, Entity $issuer): bool
     {
         if (!$message->signature || !$issuer->signing) {
             return false;

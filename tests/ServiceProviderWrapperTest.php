@@ -2,16 +2,13 @@
 
 namespace Tests;
 
-use Litesaml\Enums\BindingType;
 use Litesaml\Enums\Status;
 use Litesaml\Exceptions\SamlException;
-use Litesaml\Models\Descriptors\Idp;
 use Litesaml\Models\Messages\Attribute;
 use Litesaml\Models\Messages\AuthnRequest;
 use Litesaml\Models\Messages\AuthnResponse;
 use Litesaml\Models\Messages\LogoutRequest;
 use Litesaml\Models\Messages\LogoutResponse;
-use Litesaml\ServiceProviderWrapper;
 use PHPUnit\Framework\Attributes\Test;
 
 class ServiceProviderWrapperTest extends TestCase
@@ -56,57 +53,6 @@ class ServiceProviderWrapperTest extends TestCase
 
         parse_str((string) parse_url($response->getHeaderLine('Location'), PHP_URL_QUERY), $params);
         $this->makeSpWrapper()->handleAuthnResponse($this->makeGetRequest('/acs', $params));
-    }
-
-    #[Test]
-    public function can_parse_metadata(): void
-    {
-        $xml = file_get_contents(__DIR__ . '/fixtures/idp_metadata.xml');
-
-        $idp = ServiceProviderWrapper::parseMetadata($xml);
-
-        $this->assertInstanceOf(Idp::class, $idp);
-        $this->assertEquals('https://idp.localhost', $idp->entityId);
-        $this->assertEquals('https://idp.localhost/sso', $idp->sso->location);
-        $this->assertEquals(BindingType::REDIRECT, $idp->sso->binding);
-        $this->assertEquals('https://idp.localhost/slo', $idp->slo->location);
-        $this->assertNotNull($idp->signing);
-    }
-
-    #[Test]
-    public function parse_metadata_throws_without_idp_descriptor(): void
-    {
-        $this->expectException(SamlException::class);
-
-        ServiceProviderWrapper::parseMetadata('<md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata" entityID="x"/>');
-    }
-
-    #[Test]
-    public function parse_metadata_throws_without_sso_service(): void
-    {
-        $this->expectException(SamlException::class);
-        $this->expectExceptionMessage('No SSO service found in IdP metadata');
-
-        ServiceProviderWrapper::parseMetadata(
-            '<md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata" entityID="x">'
-            . '<md:IDPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol"/>'
-            . '</md:EntityDescriptor>'
-        );
-    }
-
-    #[Test]
-    public function parse_metadata_throws_without_slo_service(): void
-    {
-        $this->expectException(SamlException::class);
-        $this->expectExceptionMessage('No SLO service found in IdP metadata');
-
-        ServiceProviderWrapper::parseMetadata(
-            '<md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata" entityID="x">'
-            . '<md:IDPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">'
-            . '<md:SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" Location="https://idp.localhost/sso"/>'
-            . '</md:IDPSSODescriptor>'
-            . '</md:EntityDescriptor>'
-        );
     }
 
     #[Test]
