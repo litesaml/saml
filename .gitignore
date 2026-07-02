@@ -3,3 +3,5 @@
 /composer.phar
 /.phpunit.result.cache
 /.phpunit.cache/
+.claude/settings.local.json
+.php-cs-fixer.cache

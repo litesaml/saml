@@ -108,6 +108,7 @@ class ServiceProviderWrapperTest extends TestCase
         $this->assertEquals(Status::SUCCESS, $message->status);
         $this->assertEquals('user@example.com', $message->nameId);
         $this->assertEquals('REQUEST-ID', $message->inResponseTo);
+        $this->assertNull($message->sessionIndex);
         $this->assertTrue($message->isSuccess());
     }
 
@@ -120,6 +121,16 @@ class ServiceProviderWrapperTest extends TestCase
 
         $this->assertEquals(['user@example.com'], $message->getAttributeByName('email')?->values);
         $this->assertEquals(['admin', 'editor', 'viewer'], $message->getAttributeByName('roles')?->values);
+    }
+
+    #[Test]
+    public function can_handle_authn_response_with_session_index(): void
+    {
+        $request = $this->makePostRequest('/acs', ['SAMLResponse' => $this->fixture('authn_response_with_session_index', deflate: false)]);
+
+        $message = $this->makeSpWrapper()->handleAuthnResponse($request);
+
+        $this->assertEquals('SESSION-INDEX-ID', $message->sessionIndex);
     }
 
     #[Test]
