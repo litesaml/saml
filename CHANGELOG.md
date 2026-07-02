@@ -4,6 +4,17 @@
 All notable changes to this project will be documented in this file.
 <!--- END HEADER -->
 
+## 3.0.0 (2026-07-02)
+
+### Breaking Changes
+
+* `validateSignature()` removed from `ServiceProviderWrapper` and `IdentityProviderWrapper` — signatures must now be validated inline via `handle*(validate: true, issuer: ...)`; there is no more after-the-fact validation on a returned DTO
+* `Signature` class removed, and the `signature` property removed from all message DTOs (`Message`, `AuthnResponse`, `LogoutRequest`, etc.) — message DTOs are now pure parsed data with no signature accessor
+
+### Bug Fixes
+
+* Fix XML Signature Wrapping (XSW) vulnerability in POST-binding signature validation — `validateSignature()` flattened the enveloped `<ds:Signature>` into a `value`/`algorithm`/`data` DTO and verified a reconstructed detached signature, which never ran LightSAML's `assertNoXmlSignatureWrapping()` defense; an attacker holding one genuinely signed response could get forged attributes and NameID accepted as validated. Signatures are now verified against the live message via the reader's own `validate()` (`SignatureXmlReader` for POST, `SignatureStringReader` for Redirect), restoring the XSW check for both bindings
+
 ## 2.1.0 (2026-07-02)
 
 ### Features
