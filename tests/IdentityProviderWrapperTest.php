@@ -122,16 +122,6 @@ class IdentityProviderWrapperTest extends TestCase
     }
 
     #[Test]
-    public function validate_signature_returns_false_without_signing_config(): void
-    {
-        $request = $this->makeGetRequest('/sso', ['SAMLRequest' => $this->fixture('authn_request')]);
-
-        $message = $this->makeIdpWrapper()->handleAuthnRequest($request);
-
-        $this->assertFalse($this->makeIdpWrapper()->validateSignature($message, $this->makeSp()));
-    }
-
-    #[Test]
     public function send_authn_response_with_encrypted_attribute(): void
     {
         $attributes = [

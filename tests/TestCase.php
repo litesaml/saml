@@ -54,6 +54,15 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
         );
     }
 
+    protected function makeSpWithPostAcs(): Sp
+    {
+        return new Sp(
+            entityId: 'https://sp.localhost',
+            acs: new Endpoint('https://sp.localhost/acs', BindingType::POST),
+            slo: new Endpoint('https://sp.localhost/slo', BindingType::REDIRECT),
+        );
+    }
+
     protected function makeSpWithSigning(): Sp
     {
         return new Sp(

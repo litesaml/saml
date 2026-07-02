@@ -23,6 +23,7 @@ use LightSaml\Model\Protocol\AuthnRequest as LightSamlAuthnRequest;
 use LightSaml\Model\Protocol\LogoutRequest as LightSamlLogoutRequest;
 use LightSaml\Model\Protocol\LogoutResponse as LightSamlLogoutResponse;
 use LightSaml\Model\Protocol\Response as LightSamlAuthnResponse;
+use LightSaml\Model\Protocol\SamlMessage;
 use LightSaml\Model\Protocol\Status;
 use LightSaml\Model\Protocol\StatusCode;
 use LightSaml\SamlConstants;
@@ -34,7 +35,6 @@ use Litesaml\Models\Messages\Attribute;
 use Litesaml\Models\Messages\AuthnRequest;
 use Litesaml\Models\Messages\LogoutRequest;
 use Litesaml\Models\Messages\LogoutResponse;
-use Litesaml\Models\Messages\Message;
 use Litesaml\Support\MessageHandler;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -168,11 +168,10 @@ class IdentityProviderWrapper
         $dto = new AuthnRequest(
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
-            signature: $this->messageHandler->extractSignature($message),
             relayState: $message->getRelayState(),
         );
 
-        $this->validateIfRequested($dto, $validate, $issuer);
+        $this->validateIfRequested($message, $validate, $issuer);
 
         return $dto;
     }
@@ -214,13 +213,12 @@ class IdentityProviderWrapper
         $dto = new LogoutRequest(
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
-            signature: $this->messageHandler->extractSignature($message),
             nameId: $message->getNameID()->getValue(),
             sessionIndex: $message->getSessionIndex(),
             relayState: $message->getRelayState(),
         );
 
-        $this->validateIfRequested($dto, $validate, $issuer);
+        $this->validateIfRequested($message, $validate, $issuer);
 
         return $dto;
     }
@@ -236,21 +234,15 @@ class IdentityProviderWrapper
         $dto = new LogoutResponse(
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
-            signature: $this->messageHandler->extractSignature($message),
             relayState: $message->getRelayState(),
         );
 
-        $this->validateIfRequested($dto, $validate, $issuer);
+        $this->validateIfRequested($message, $validate, $issuer);
 
         return $dto;
     }
 
-    public function validateSignature(Message $message, Entity $issuer): bool
-    {
-        return $this->messageHandler->validateSignature($message, $issuer);
-    }
-
-    private function validateIfRequested(Message $dto, bool $validate, ?Entity $issuer): void
+    private function validateIfRequested(SamlMessage $message, bool $validate, ?Entity $issuer): void
     {
         if (!$validate) {
             return;
@@ -260,7 +252,7 @@ class IdentityProviderWrapper
             throw new SamlException('An issuer must be provided to validate the signature');
         }
 
-        if (!$this->messageHandler->validateSignature($dto, $issuer)) {
+        if (!$this->messageHandler->validateSignature($message, $issuer)) {
             throw new SamlException('Invalid signature');
         }
     }
