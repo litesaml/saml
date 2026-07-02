@@ -2,8 +2,12 @@
 
 namespace Tests;
 
+use LightSaml\Binding\SamlPostResponse;
+use Litesaml\Enums\BindingType;
 use Litesaml\Enums\Status;
 use Litesaml\Exceptions\SamlException;
+use Litesaml\Models\Descriptors\Endpoint;
+use Litesaml\Models\Descriptors\Sp;
 use Litesaml\Models\Messages\Attribute;
 use Litesaml\Models\Messages\AuthnRequest;
 use Litesaml\Models\Messages\AuthnResponse;
@@ -277,6 +281,53 @@ class ServiceProviderWrapperTest extends TestCase
         $message = $this->makeSpWrapper()->handleAuthnResponse($request, validate: true, issuer: $this->makeIdpWithSigning());
 
         $this->assertInstanceOf(AuthnResponse::class, $message);
+    }
+
+    #[Test]
+    public function handle_authn_response_validates_signature_for_post_binding(): void
+    {
+        $idpWithSigning = $this->makeIdpWrapper($this->makeIdpWithSigning());
+        $sp = new Sp(
+            entityId: 'https://sp.localhost',
+            acs: new Endpoint('https://sp.localhost/acs', BindingType::POST),
+            slo: new Endpoint('https://sp.localhost/slo', BindingType::REDIRECT),
+        );
+        $attributes = [new Attribute(name: 'email', values: ['user@example.com'])];
+
+        $response = $idpWithSigning->sendAuthnResponse($sp, $attributes);
+        $this->assertInstanceOf(SamlPostResponse::class, $response);
+
+        $request = $this->makePostRequest('/acs', $response->getData());
+
+        $message = $this->makeSpWrapper($sp)->handleAuthnResponse($request, validate: true, issuer: $this->makeIdpWithSigning());
+
+        $this->assertInstanceOf(AuthnResponse::class, $message);
+    }
+
+    #[Test]
+    public function handle_authn_response_throws_on_tampered_post_binding_signature(): void
+    {
+        $this->expectException(SamlException::class);
+        $this->expectExceptionMessage('Invalid signature');
+
+        $idpWithSigning = $this->makeIdpWrapper($this->makeIdpWithSigning());
+        $sp = new Sp(
+            entityId: 'https://sp.localhost',
+            acs: new Endpoint('https://sp.localhost/acs', BindingType::POST),
+            slo: new Endpoint('https://sp.localhost/slo', BindingType::REDIRECT),
+        );
+        $attributes = [new Attribute(name: 'email', values: ['user@example.com'])];
+
+        $response = $idpWithSigning->sendAuthnResponse($sp, $attributes);
+        $this->assertInstanceOf(SamlPostResponse::class, $response);
+
+        $data = $response->getData();
+        $xml = base64_decode($data['SAMLResponse'], true);
+        $data['SAMLResponse'] = base64_encode(str_replace('user@example.com', 'attacker@example.com', $xml));
+
+        $request = $this->makePostRequest('/acs', $data);
+
+        $this->makeSpWrapper($sp)->handleAuthnResponse($request, validate: true, issuer: $this->makeIdpWithSigning());
     }
 
     #[Test]
