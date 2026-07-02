@@ -219,33 +219,6 @@ class ServiceProviderWrapperTest extends TestCase
     }
 
     #[Test]
-    public function validate_signature_returns_false_without_signing_config(): void
-    {
-        $request = $this->makePostRequest('/acs', ['SAMLResponse' => $this->fixture('authn_response', deflate: false)]);
-
-        $message = $this->makeSpWrapper()->handleAuthnResponse($request);
-
-        $this->assertFalse($this->makeSpWrapper()->validateSignature($message, $this->makeIdp()));
-    }
-
-    #[Test]
-    public function can_validate_signature(): void
-    {
-        $spWithSigning = $this->makeSpWrapper($this->makeSpWithSigning());
-
-        $redirectResponse = $spWithSigning->sendAuthnRequest($this->makeIdp());
-        $location = $redirectResponse->getHeaderLine('Location');
-
-        parse_str((string) parse_url($location, PHP_URL_QUERY), $queryParams);
-        $request = $this->makeGetRequest($location, $queryParams);
-
-        $idp = $this->makeIdpWrapper();
-        $message = $idp->handleAuthnRequest($request);
-
-        $this->assertTrue($spWithSigning->validateSignature($message, $this->makeSpWithSigning()));
-    }
-
-    #[Test]
     public function handle_authn_response_throws_when_validate_requires_issuer(): void
     {
         $this->expectException(SamlException::class);

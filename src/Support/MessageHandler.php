@@ -9,13 +9,10 @@ use LightSaml\Credential\KeyHelper;
 use LightSaml\Credential\X509Certificate;
 use LightSaml\Model\Protocol\SamlMessage;
 use LightSaml\Model\XmlDSig\AbstractSignatureReader;
-use LightSaml\Model\XmlDSig\SignatureStringReader;
 use LightSaml\Model\XmlDSig\SignatureWriter;
 use Litesaml\Exceptions\SamlException;
 use Litesaml\Models\Descriptors\Endpoint;
 use Litesaml\Models\Descriptors\Entity;
-use Litesaml\Models\Messages\Message;
-use Litesaml\Models\Messages\Signature;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -70,30 +67,15 @@ final class MessageHandler
         return $message;
     }
 
-    public function extractSignature(SamlMessage $message): ?Signature
-    {
-        $signatureReader = $message->getSignature();
-
-        if ($signatureReader instanceof SignatureStringReader) {
-            return new Signature(
-                value: $signatureReader->getSignature(),
-                algorithm: $signatureReader->getAlgorithm(),
-                data: $signatureReader->getData(),
-            );
-        }
-
-        return null;
-    }
-
     /**
      * Validates the signature of a received message against the issuer's signing certificate.
      *
      * Operates on the live LightSAML message so both bindings are covered: the detached
      * SignatureStringReader (HTTP-Redirect) and the enveloped SignatureXmlReader (HTTP-POST).
      * Delegating to the reader's own validate() is essential for POST — it runs LightSAML's XML
-     * Signature Wrapping defense, which a flattened value/algorithm/data DTO cannot express.
+     * Signature Wrapping defense, which a flattened value/algorithm/data representation cannot express.
      */
-    public function validateMessageSignature(SamlMessage $message, Entity $issuer): bool
+    public function validateSignature(SamlMessage $message, Entity $issuer): bool
     {
         if (!$issuer->signing) {
             return false;
@@ -108,29 +90,6 @@ final class MessageHandler
         try {
             $key = KeyHelper::createPublicKey(
                 (new X509Certificate())->loadPem($issuer->signing->publicKey->toPem())
-            );
-
-            return $signatureReader->validate($key);
-        } catch (Exception) {
-            return false;
-        }
-    }
-
-    public function validateSignature(Message $message, Entity $issuer): bool
-    {
-        if (!$message->signature || !$issuer->signing) {
-            return false;
-        }
-
-        try {
-            $key = KeyHelper::createPublicKey(
-                (new X509Certificate())->loadPem($issuer->signing->publicKey->toPem())
-            );
-
-            $signatureReader = new SignatureStringReader(
-                $message->signature->value,
-                $message->signature->algorithm,
-                $message->signature->data,
             );
 
             return $signatureReader->validate($key);

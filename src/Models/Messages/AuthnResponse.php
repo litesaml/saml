@@ -12,7 +12,6 @@ readonly class AuthnResponse extends Message
     public function __construct(
         string $id,
         string $issuer,
-        ?Signature $signature,
         public array $attributes,
         public ?Status $status = null,
         public ?string $nameId = null,
@@ -20,7 +19,7 @@ readonly class AuthnResponse extends Message
         public ?string $sessionIndex = null,
         ?string $relayState = null,
     ) {
-        parent::__construct($id, $issuer, $signature, $relayState);
+        parent::__construct($id, $issuer, $relayState);
     }
 
     public function isSuccess(): bool
