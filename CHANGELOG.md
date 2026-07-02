@@ -4,6 +4,16 @@
 All notable changes to this project will be documented in this file.
 <!--- END HEADER -->
 
+## 2.1.0 (2026-07-02)
+
+### Features
+
+* `AuthnResponse::$sessionIndex` — exposes the `SessionIndex` from the `AuthnStatement`, needed to send a `LogoutRequest`, without reading the low-level assertion manually
+
+### Bug Fixes
+
+* Validate signatures on HTTP-POST bound messages — `extractSignature()` only recognized detached signatures (`SignatureStringReader`) used by the Redirect binding; enveloped XML signatures carried by POST-bound messages were silently dropped and `validateSignature()` always threw "Invalid signature"
+
 ## 2.0.0 (2026-06-28)
 
 ### Breaking Changes
