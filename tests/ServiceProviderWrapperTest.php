@@ -3,11 +3,8 @@
 namespace Tests;
 
 use LightSaml\Binding\SamlPostResponse;
-use Litesaml\Enums\BindingType;
 use Litesaml\Enums\Status;
 use Litesaml\Exceptions\SamlException;
-use Litesaml\Models\Descriptors\Endpoint;
-use Litesaml\Models\Descriptors\Sp;
 use Litesaml\Models\Messages\Attribute;
 use Litesaml\Models\Messages\AuthnRequest;
 use Litesaml\Models\Messages\AuthnResponse;
@@ -287,11 +284,7 @@ class ServiceProviderWrapperTest extends TestCase
     public function handle_authn_response_validates_signature_for_post_binding(): void
     {
         $idpWithSigning = $this->makeIdpWrapper($this->makeIdpWithSigning());
-        $sp = new Sp(
-            entityId: 'https://sp.localhost',
-            acs: new Endpoint('https://sp.localhost/acs', BindingType::POST),
-            slo: new Endpoint('https://sp.localhost/slo', BindingType::REDIRECT),
-        );
+        $sp = $this->makeSpWithPostAcs();
         $attributes = [new Attribute(name: 'email', values: ['user@example.com'])];
 
         $response = $idpWithSigning->sendAuthnResponse($sp, $attributes);
@@ -311,11 +304,7 @@ class ServiceProviderWrapperTest extends TestCase
         $this->expectExceptionMessage('Invalid signature');
 
         $idpWithSigning = $this->makeIdpWrapper($this->makeIdpWithSigning());
-        $sp = new Sp(
-            entityId: 'https://sp.localhost',
-            acs: new Endpoint('https://sp.localhost/acs', BindingType::POST),
-            slo: new Endpoint('https://sp.localhost/slo', BindingType::REDIRECT),
-        );
+        $sp = $this->makeSpWithPostAcs();
         $attributes = [new Attribute(name: 'email', values: ['user@example.com'])];
 
         $response = $idpWithSigning->sendAuthnResponse($sp, $attributes);
@@ -327,6 +316,45 @@ class ServiceProviderWrapperTest extends TestCase
 
         $request = $this->makePostRequest('/acs', $data);
 
+        $this->makeSpWrapper($sp)->handleAuthnResponse($request, validate: true, issuer: $this->makeIdpWithSigning());
+    }
+
+    #[Test]
+    public function handle_authn_response_rejects_xml_signature_wrapping_attack(): void
+    {
+        // A genuinely IdP-signed Response is wrapped so its valid signature covers a buried copy
+        // (Reference URI "#<id>"), while a forged assertion is presented as the consumed one. The
+        // signature verifies cryptographically; only the XML Signature Wrapping check rejects it.
+        $this->expectException(SamlException::class);
+        $this->expectExceptionMessage('Invalid signature');
+
+        $idpWithSigning = $this->makeIdpWrapper($this->makeIdpWithSigning());
+        $sp = $this->makeSpWithPostAcs();
+        $attributes = [new Attribute(name: 'email', values: ['user@example.com'])];
+
+        $response = $idpWithSigning->sendAuthnResponse($sp, $attributes);
+        $this->assertInstanceOf(SamlPostResponse::class, $response);
+
+        $data = $response->getData();
+        $xml = base64_decode($data['SAMLResponse'], true);
+        $xml = substr($xml, strpos($xml, '<samlp:Response'));
+
+        // Wrap it with string surgery (DOM manipulation would renormalize namespaces and break the
+        // buried element's digest): hide the genuine Response verbatim so the signature still
+        // verifies against it, while the outer Response gets a forged attribute and a different ID,
+        // so the signature's Reference no longer points at its enclosing element.
+        $start = strpos($xml, '<ds:Signature');
+        $signature = substr($xml, $start, strpos($xml, '</ds:Signature>') + strlen('</ds:Signature>') - $start);
+        preg_match('/<samlp:Response[^>]* ID="([^"]+)"/', $xml, $m);
+        $buried = str_replace($signature, '', $xml); // content the signature covers, signature removed
+        $outer = str_replace(['user@example.com', 'ID="' . $m[1] . '"'], ['attacker@evil.com', 'ID="_evil"'], $xml);
+        $wrapped = str_replace(
+            '</samlp:Response>',
+            '<wrap:hidden xmlns:wrap="urn:x:wrap">' . $buried . '</wrap:hidden></samlp:Response>',
+            $outer,
+        );
+
+        $request = $this->makePostRequest('/acs', ['SAMLResponse' => base64_encode($wrapped)]);
         $this->makeSpWrapper($sp)->handleAuthnResponse($request, validate: true, issuer: $this->makeIdpWithSigning());
     }
 

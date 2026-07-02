@@ -23,6 +23,7 @@ use LightSaml\Model\Protocol\AuthnRequest as LightSamlAuthnRequest;
 use LightSaml\Model\Protocol\LogoutRequest as LightSamlLogoutRequest;
 use LightSaml\Model\Protocol\LogoutResponse as LightSamlLogoutResponse;
 use LightSaml\Model\Protocol\Response as LightSamlAuthnResponse;
+use LightSaml\Model\Protocol\SamlMessage;
 use LightSaml\Model\Protocol\Status;
 use LightSaml\Model\Protocol\StatusCode;
 use LightSaml\SamlConstants;
@@ -172,7 +173,7 @@ class IdentityProviderWrapper
             relayState: $message->getRelayState(),
         );
 
-        $this->validateIfRequested($dto, $validate, $issuer);
+        $this->validateIfRequested($message, $validate, $issuer);
 
         return $dto;
     }
@@ -220,7 +221,7 @@ class IdentityProviderWrapper
             relayState: $message->getRelayState(),
         );
 
-        $this->validateIfRequested($dto, $validate, $issuer);
+        $this->validateIfRequested($message, $validate, $issuer);
 
         return $dto;
     }
@@ -240,7 +241,7 @@ class IdentityProviderWrapper
             relayState: $message->getRelayState(),
         );
 
-        $this->validateIfRequested($dto, $validate, $issuer);
+        $this->validateIfRequested($message, $validate, $issuer);
 
         return $dto;
     }
@@ -250,7 +251,7 @@ class IdentityProviderWrapper
         return $this->messageHandler->validateSignature($message, $issuer);
     }
 
-    private function validateIfRequested(Message $dto, bool $validate, ?Entity $issuer): void
+    private function validateIfRequested(SamlMessage $message, bool $validate, ?Entity $issuer): void
     {
         if (!$validate) {
             return;
@@ -260,7 +261,7 @@ class IdentityProviderWrapper
             throw new SamlException('An issuer must be provided to validate the signature');
         }
 
-        if (!$this->messageHandler->validateSignature($dto, $issuer)) {
+        if (!$this->messageHandler->validateMessageSignature($message, $issuer)) {
             throw new SamlException('Invalid signature');
         }
     }
