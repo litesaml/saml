@@ -105,10 +105,15 @@ class ServiceProviderWrapper
 
         $attributes = [];
         $nameId = null;
+        $sessionIndex = null;
 
         foreach ($message->getAllAssertions() as $assertion) {
             if ($nameId === null) {
                 $nameId = $assertion->getSubject()?->getNameID()?->getValue();
+            }
+
+            if ($sessionIndex === null) {
+                $sessionIndex = $assertion->getFirstAuthnStatement()?->getSessionIndex();
             }
 
             foreach ($assertion->getAllAttributeStatements() as $attributeStatement) {
@@ -139,6 +144,10 @@ class ServiceProviderWrapper
                 $nameId = $assertion->getSubject()?->getNameID()?->getValue();
             }
 
+            if ($sessionIndex === null) {
+                $sessionIndex = $assertion->getFirstAuthnStatement()?->getSessionIndex();
+            }
+
             foreach ($assertion->getAllAttributeStatements() as $attributeStatement) {
                 foreach ($attributeStatement->getAllAttributes() as $attribute) {
                     $attributes[] = new Attribute(
@@ -160,6 +169,7 @@ class ServiceProviderWrapper
             status: $statusUrn !== null ? Status::fromUrn($statusUrn) : null,
             nameId: $nameId,
             inResponseTo: $message->getInResponseTo(),
+            sessionIndex: $sessionIndex,
             relayState: $message->getRelayState(),
         );
 
