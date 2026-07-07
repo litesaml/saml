@@ -4,6 +4,17 @@
 All notable changes to this project will be documented in this file.
 <!--- END HEADER -->
 
+## 4.0.0 (2026-07-07)
+
+### Breaking Changes
+
+* Add first-class NameIDFormat support ([#9](https://github.com/litesaml/saml/pull/9))
+* Consolidate optional send*/handle* parameters into ContextList ([#13](https://github.com/litesaml/saml/pull/13))
+
+### Features
+
+* Allow IdP to set NameID on sendAuthnResponse ([#11](https://github.com/litesaml/saml/pull/11))
+
 ## 3.0.1 (2026-07-07)
 
 ### Bug Fixes
