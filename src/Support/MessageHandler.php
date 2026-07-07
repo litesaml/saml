@@ -2,6 +2,7 @@
 
 namespace Litesaml\Support;
 
+use DOMElement;
 use Exception;
 use LightSaml\Binding\BindingFactory;
 use LightSaml\Context\Profile\MessageContext;
@@ -10,6 +11,7 @@ use LightSaml\Credential\X509Certificate;
 use LightSaml\Model\Protocol\SamlMessage;
 use LightSaml\Model\XmlDSig\AbstractSignatureReader;
 use LightSaml\Model\XmlDSig\SignatureWriter;
+use LightSaml\Model\XmlDSig\SignatureXmlReader;
 use Litesaml\Exceptions\SamlException;
 use Litesaml\Models\Descriptors\Endpoint;
 use Litesaml\Models\Descriptors\Entity;
@@ -92,9 +94,43 @@ final class MessageHandler
                 (new X509Certificate())->loadPem($issuer->signing->publicKey->toPem())
             );
 
-            return $signatureReader->validate($key);
+            if (!$signatureReader->validate($key)) {
+                return false;
+            }
         } catch (Exception) {
             return false;
         }
+
+        if ($signatureReader instanceof SignatureXmlReader && !$this->signatureCoversDocumentRoot($signatureReader)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * xmlseclibs resolves a Reference URI by searching the whole document for a matching ID
+     * attribute, regardless of nesting. A cryptographically valid signature can therefore cover a
+     * genuine copy buried elsewhere in the document while this wrapper builds the message from a
+     * forged root element (XML Signature Wrapping). This wrapper only ever signs and validates
+     * whole protocol messages (never an embedded Assertion), so requiring the signature to cover
+     * the document's root element - the node the message was actually deserialized from - is a
+     * safe invariant here.
+     */
+    private function signatureCoversDocumentRoot(SignatureXmlReader $signatureReader): bool
+    {
+        $documentElement = $signatureReader->getSignature()->sigNode->ownerDocument?->documentElement;
+
+        if (!$documentElement instanceof DOMElement) {
+            return false;
+        }
+
+        foreach ($signatureReader->getSignature()->getValidatedNodes() as $node) {
+            if ($node instanceof DOMElement && $node->isSameNode($documentElement)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
