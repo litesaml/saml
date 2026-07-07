@@ -4,6 +4,12 @@
 All notable changes to this project will be documented in this file.
 <!--- END HEADER -->
 
+## 3.0.1 (2026-07-07)
+
+### Bug Fixes
+
+* Require signature to cover the document root to close XSW bypass ([#10](https://github.com/litesaml/saml/pull/10))
+
 ## 3.0.0 (2026-07-02)
 
 ### Breaking Changes
