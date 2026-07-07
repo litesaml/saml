@@ -1,8 +1,8 @@
 <?php
 
-namespace Litesaml\Models\Messages;
+namespace Litesaml\Models\Messages\Context;
 
-readonly class Attribute
+readonly class Attribute implements Context
 {
     /**
      * @param array<mixed> $values
