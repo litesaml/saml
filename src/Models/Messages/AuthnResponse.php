@@ -3,6 +3,8 @@
 namespace Litesaml\Models\Messages;
 
 use Litesaml\Enums\Status;
+use Litesaml\Models\Messages\Context\Attribute;
+use Litesaml\Models\Messages\Context\NameId;
 
 readonly class AuthnResponse extends Message
 {

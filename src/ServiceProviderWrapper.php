@@ -29,12 +29,17 @@ use Litesaml\Exceptions\SamlException;
 use Litesaml\Models\Descriptors\Entity;
 use Litesaml\Models\Descriptors\Idp;
 use Litesaml\Models\Descriptors\Sp;
-use Litesaml\Models\Messages\Attribute;
 use Litesaml\Models\Messages\AuthnRequest;
 use Litesaml\Models\Messages\AuthnResponse;
+use Litesaml\Models\Messages\Context\Attribute;
+use Litesaml\Models\Messages\Context\ContextList;
+use Litesaml\Models\Messages\Context\NameId;
+use Litesaml\Models\Messages\Context\NameIdPolicyFormat;
+use Litesaml\Models\Messages\Context\RelayState;
+use Litesaml\Models\Messages\Context\SessionIndex;
+use Litesaml\Models\Messages\Context\Validate;
 use Litesaml\Models\Messages\LogoutRequest;
 use Litesaml\Models\Messages\LogoutResponse;
-use Litesaml\Models\Messages\NameId;
 use Litesaml\Support\MessageHandler;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -81,14 +86,17 @@ class ServiceProviderWrapper
         $entityDescriptor = (new EntityDescriptor($this->sp->entityId))
             ->addItem($spSsoDescriptor);
 
-        $context = new SerializationContext();
-        $entityDescriptor->serialize($context->getDocument(), $context);
+        $serializationContext = new SerializationContext();
+        $entityDescriptor->serialize($serializationContext->getDocument(), $serializationContext);
 
-        return (string) $context->getDocument()->saveXML();
+        return (string) $serializationContext->getDocument()->saveXML();
     }
 
-    public function sendAuthnRequest(Idp $recipient, ?string $relayState = null, ?string $nameIdPolicyFormat = null): ResponseInterface
+    public function sendAuthnRequest(Idp $recipient, ContextList $context = new ContextList()): ResponseInterface
     {
+        $relayState = $context->first(RelayState::class)?->value;
+        $nameIdPolicyFormat = $context->first(NameIdPolicyFormat::class)?->value;
+
         $authnRequest = (new LightSamlAuthnRequest())
             ->setAssertionConsumerServiceURL($this->sp->acs->location)
             ->setProtocolBinding($this->sp->acs->getBinding())
@@ -105,7 +113,7 @@ class ServiceProviderWrapper
         return $this->messageHandler->send($authnRequest, $this->sp, $recipient->sso);
     }
 
-    public function handleAuthnResponse(ServerRequestInterface $request, bool $validate = false, ?Entity $issuer = null): AuthnResponse
+    public function handleAuthnResponse(ServerRequestInterface $request, ContextList $context = new ContextList()): AuthnResponse
     {
         $message = $this->messageHandler->unpack($request);
 
@@ -184,12 +192,12 @@ class ServiceProviderWrapper
             relayState: $message->getRelayState(),
         );
 
-        $this->validateIfRequested($message, $validate, $issuer);
+        $this->validateIfRequested($message, $context);
 
         return $dto;
     }
 
-    public function handleAuthnRequest(ServerRequestInterface $request, bool $validate = false, ?Entity $issuer = null): AuthnRequest
+    public function handleAuthnRequest(ServerRequestInterface $request, ContextList $context = new ContextList()): AuthnRequest
     {
         $message = $this->messageHandler->unpack($request);
 
@@ -204,13 +212,17 @@ class ServiceProviderWrapper
             nameIdPolicyFormat: $message->getNameIDPolicy()?->getFormat(),
         );
 
-        $this->validateIfRequested($message, $validate, $issuer);
+        $this->validateIfRequested($message, $context);
 
         return $dto;
     }
 
-    public function sendLogoutRequest(Entity $recipient, NameId $nameId, ?string $relayState = null, ?string $sessionIndex = null): ResponseInterface
+    public function sendLogoutRequest(Entity $recipient, ContextList $context = new ContextList()): ResponseInterface
     {
+        $nameId = $context->required(NameId::class, 'A NameId is required to send a LogoutRequest');
+        $relayState = $context->first(RelayState::class)?->value;
+        $sessionIndex = $context->first(SessionIndex::class)?->value;
+
         $logoutRequest = (new LightSamlLogoutRequest())
             ->setID(Helper::generateID())
             ->setIssueInstant(new DateTime())
@@ -235,7 +247,7 @@ class ServiceProviderWrapper
         return $this->messageHandler->send($logoutResponse, $this->sp, $recipient->slo);
     }
 
-    public function handleLogoutRequest(ServerRequestInterface $request, bool $validate = false, ?Entity $issuer = null): LogoutRequest
+    public function handleLogoutRequest(ServerRequestInterface $request, ContextList $context = new ContextList()): LogoutRequest
     {
         $message = $this->messageHandler->unpack($request);
 
@@ -251,12 +263,12 @@ class ServiceProviderWrapper
             relayState: $message->getRelayState(),
         );
 
-        $this->validateIfRequested($message, $validate, $issuer);
+        $this->validateIfRequested($message, $context);
 
         return $dto;
     }
 
-    public function handleLogoutResponse(ServerRequestInterface $request, bool $validate = false, ?Entity $issuer = null): LogoutResponse
+    public function handleLogoutResponse(ServerRequestInterface $request, ContextList $context = new ContextList()): LogoutResponse
     {
         $message = $this->messageHandler->unpack($request);
 
@@ -270,22 +282,20 @@ class ServiceProviderWrapper
             relayState: $message->getRelayState(),
         );
 
-        $this->validateIfRequested($message, $validate, $issuer);
+        $this->validateIfRequested($message, $context);
 
         return $dto;
     }
 
-    private function validateIfRequested(SamlMessage $message, bool $validate, ?Entity $issuer): void
+    private function validateIfRequested(SamlMessage $message, ContextList $context): void
     {
-        if (!$validate) {
+        $validate = $context->first(Validate::class);
+
+        if ($validate === null) {
             return;
         }
 
-        if ($issuer === null) {
-            throw new SamlException('An issuer must be provided to validate the signature');
-        }
-
-        if (!$this->messageHandler->validateSignature($message, $issuer)) {
+        if (!$this->messageHandler->validateSignature($message, $validate->issuer)) {
             throw new SamlException('Invalid signature');
         }
     }
