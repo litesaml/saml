@@ -75,6 +75,7 @@ final class MetadataParser
             sso: new Endpoint($ssoService->getLocation(), BindingType::fromUrn($ssoService->getBinding())),
             slo: new Endpoint($sloService->getLocation(), BindingType::fromUrn($sloService->getBinding())),
             signing: $signing,
+            nameIdFormats: $idpDescriptor->getAllNameIDFormats() ?? [],
         );
     }
 
@@ -107,6 +108,7 @@ final class MetadataParser
             slo: new Endpoint($sloService->getLocation(), BindingType::fromUrn($sloService->getBinding())),
             signing: $signing,
             encryption: $encryption,
+            nameIdFormats: $spDescriptor->getAllNameIDFormats() ?? [],
         );
     }
 }

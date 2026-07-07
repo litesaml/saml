@@ -9,7 +9,7 @@ use LightSaml\Credential\X509Certificate;
 use LightSaml\Helper;
 use LightSaml\Model\Assertion\EncryptedAssertionReader;
 use LightSaml\Model\Assertion\Issuer;
-use LightSaml\Model\Assertion\NameID;
+use LightSaml\Model\Assertion\NameID as LightSamlNameID;
 use LightSaml\Model\Metadata\AssertionConsumerService;
 use LightSaml\Model\Metadata\EntityDescriptor;
 use LightSaml\Model\Metadata\KeyDescriptor;
@@ -19,6 +19,7 @@ use LightSaml\Model\Protocol as LightSaml;
 use LightSaml\Model\Protocol\AuthnRequest as LightSamlAuthnRequest;
 use LightSaml\Model\Protocol\LogoutRequest as LightSamlLogoutRequest;
 use LightSaml\Model\Protocol\LogoutResponse as LightSamlLogoutResponse;
+use LightSaml\Model\Protocol\NameIDPolicy;
 use LightSaml\Model\Protocol\SamlMessage;
 use LightSaml\Model\Protocol\Status as LightSamlStatus;
 use LightSaml\Model\Protocol\StatusCode;
@@ -33,6 +34,7 @@ use Litesaml\Models\Messages\AuthnRequest;
 use Litesaml\Models\Messages\AuthnResponse;
 use Litesaml\Models\Messages\LogoutRequest;
 use Litesaml\Models\Messages\LogoutResponse;
+use Litesaml\Models\Messages\NameId;
 use Litesaml\Support\MessageHandler;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -72,6 +74,10 @@ class ServiceProviderWrapper
                 ->setLocation($this->sp->slo->location)
         );
 
+        foreach ($this->sp->nameIdFormats as $nameIdFormat) {
+            $spSsoDescriptor->addNameIDFormat($nameIdFormat);
+        }
+
         $entityDescriptor = (new EntityDescriptor($this->sp->entityId))
             ->addItem($spSsoDescriptor);
 
@@ -81,7 +87,7 @@ class ServiceProviderWrapper
         return (string) $context->getDocument()->saveXML();
     }
 
-    public function sendAuthnRequest(Idp $recipient, ?string $relayState = null): ResponseInterface
+    public function sendAuthnRequest(Idp $recipient, ?string $relayState = null, ?string $nameIdPolicyFormat = null): ResponseInterface
     {
         $authnRequest = (new LightSamlAuthnRequest())
             ->setAssertionConsumerServiceURL($this->sp->acs->location)
@@ -91,6 +97,10 @@ class ServiceProviderWrapper
             ->setDestination($recipient->sso->location)
             ->setIssuer(new Issuer($this->sp->entityId))
             ->setRelayState($relayState);
+
+        if ($nameIdPolicyFormat !== null) {
+            $authnRequest->setNameIDPolicy(new NameIDPolicy($nameIdPolicyFormat));
+        }
 
         return $this->messageHandler->send($authnRequest, $this->sp, $recipient->sso);
     }
@@ -109,7 +119,8 @@ class ServiceProviderWrapper
 
         foreach ($message->getAllAssertions() as $assertion) {
             if ($nameId === null) {
-                $nameId = $assertion->getSubject()?->getNameID()?->getValue();
+                $subjectNameId = $assertion->getSubject()?->getNameID();
+                $nameId = $subjectNameId !== null ? new NameId($subjectNameId->getValue(), $subjectNameId->getFormat()) : null;
             }
 
             if ($sessionIndex === null) {
@@ -141,7 +152,8 @@ class ServiceProviderWrapper
             $assertion = $encryptedAssertion->decryptAssertion($key, new DeserializationContext());
 
             if ($nameId === null) {
-                $nameId = $assertion->getSubject()?->getNameID()?->getValue();
+                $subjectNameId = $assertion->getSubject()?->getNameID();
+                $nameId = $subjectNameId !== null ? new NameId($subjectNameId->getValue(), $subjectNameId->getFormat()) : null;
             }
 
             if ($sessionIndex === null) {
@@ -189,6 +201,7 @@ class ServiceProviderWrapper
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
             relayState: $message->getRelayState(),
+            nameIdPolicyFormat: $message->getNameIDPolicy()?->getFormat(),
         );
 
         $this->validateIfRequested($message, $validate, $issuer);
@@ -196,14 +209,14 @@ class ServiceProviderWrapper
         return $dto;
     }
 
-    public function sendLogoutRequest(Entity $recipient, string $nameId, ?string $relayState = null, ?string $sessionIndex = null): ResponseInterface
+    public function sendLogoutRequest(Entity $recipient, NameId $nameId, ?string $relayState = null, ?string $sessionIndex = null): ResponseInterface
     {
         $logoutRequest = (new LightSamlLogoutRequest())
             ->setID(Helper::generateID())
             ->setIssueInstant(new DateTime())
             ->setDestination($recipient->slo->location)
             ->setIssuer(new Issuer($this->sp->entityId))
-            ->setNameID(new NameID($nameId))
+            ->setNameID(new LightSamlNameID($nameId->value, $nameId->format))
             ->setSessionIndex($sessionIndex)
             ->setRelayState($relayState);
 
@@ -233,7 +246,7 @@ class ServiceProviderWrapper
         $dto = new LogoutRequest(
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
-            nameId: $message->getNameID()->getValue(),
+            nameId: new NameId($message->getNameID()->getValue(), $message->getNameID()->getFormat()),
             sessionIndex: $message->getSessionIndex(),
             relayState: $message->getRelayState(),
         );

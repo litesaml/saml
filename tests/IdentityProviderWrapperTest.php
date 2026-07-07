@@ -8,6 +8,8 @@ use Litesaml\Models\Messages\AuthnRequest;
 use Litesaml\Models\Messages\AuthnResponse;
 use Litesaml\Models\Messages\LogoutRequest;
 use Litesaml\Models\Messages\LogoutResponse;
+use Litesaml\Models\Messages\NameId;
+use Litesaml\Support\MetadataParser;
 use PHPUnit\Framework\Attributes\Test;
 
 class IdentityProviderWrapperTest extends TestCase
@@ -31,6 +33,17 @@ class IdentityProviderWrapperTest extends TestCase
 
         $this->assertStringContainsString('KeyDescriptor', $xml);
         $this->assertStringContainsString('use="signing"', $xml);
+    }
+
+    #[Test]
+    public function generate_metadata_includes_name_id_formats_when_configured(): void
+    {
+        $idp = $this->makeIdpWithNameIdFormats(['urn:oasis:names:tc:SAML:2.0:nameid-format:persistent']);
+        $xml = $this->makeIdpWrapper($idp)->generateMetadata();
+
+        $parsed = MetadataParser::parse($xml);
+
+        $this->assertEquals(['urn:oasis:names:tc:SAML:2.0:nameid-format:persistent'], $parsed->nameIdFormats);
     }
 
     #[Test]
@@ -80,7 +93,7 @@ class IdentityProviderWrapperTest extends TestCase
     #[Test]
     public function can_send_logout_request(): void
     {
-        $response = $this->makeIdpWrapper()->sendLogoutRequest($this->makeSp(), 'user@example.com');
+        $response = $this->makeIdpWrapper()->sendLogoutRequest($this->makeSp(), new NameId('user@example.com'));
 
         $this->assertEquals(302, $response->getStatusCode());
         $this->assertStringContainsString('https://sp.localhost/slo', $response->getHeaderLine('Location'));
@@ -105,8 +118,24 @@ class IdentityProviderWrapperTest extends TestCase
         $this->assertInstanceOf(LogoutRequest::class, $message);
         $this->assertEquals('LOGOUT-REQUEST-ID', $message->id);
         $this->assertEquals('https://idp.localhost', $message->issuer);
-        $this->assertEquals('user@example.com', $message->nameId);
+        $this->assertEquals('user@example.com', $message->nameId?->value);
+        $this->assertEquals('urn:oasis:names:tc:SAML:2.0:nameid-format:persistent', $message->nameId?->format);
         $this->assertEquals('SESSION-INDEX-ID', $message->sessionIndex);
+    }
+
+    #[Test]
+    public function can_send_logout_request_with_name_id_format(): void
+    {
+        $response = $this->makeIdpWrapper()->sendLogoutRequest(
+            $this->makeSp(),
+            new NameId('user@example.com', 'urn:oasis:names:tc:SAML:2.0:nameid-format:persistent'),
+        );
+        parse_str((string) parse_url($response->getHeaderLine('Location'), PHP_URL_QUERY), $params);
+
+        $message = $this->makeSpWrapper()->handleLogoutRequest($this->makeGetRequest('/slo', $params));
+
+        $this->assertEquals('user@example.com', $message->nameId?->value);
+        $this->assertEquals('urn:oasis:names:tc:SAML:2.0:nameid-format:persistent', $message->nameId?->format);
     }
 
     #[Test]
@@ -214,7 +243,7 @@ class IdentityProviderWrapperTest extends TestCase
     {
         $spWithSigning = $this->makeSpWrapper($this->makeSpWithSigning());
 
-        $response = $spWithSigning->sendLogoutRequest($this->makeIdp(), 'user@example.com');
+        $response = $spWithSigning->sendLogoutRequest($this->makeIdp(), new NameId('user@example.com'));
         parse_str((string) parse_url($response->getHeaderLine('Location'), PHP_URL_QUERY), $params);
         $request = $this->makeGetRequest('/slo', $params);
 
