@@ -11,7 +11,7 @@ use LightSaml\Model\Assertion\Attribute as LightSamlAttribute;
 use LightSaml\Model\Assertion\AttributeStatement;
 use LightSaml\Model\Assertion\EncryptedAssertionWriter;
 use LightSaml\Model\Assertion\Issuer;
-use LightSaml\Model\Assertion\NameID;
+use LightSaml\Model\Assertion\NameID as LightSamlNameID;
 use LightSaml\Model\Assertion\Subject;
 use LightSaml\Model\Assertion\SubjectConfirmation;
 use LightSaml\Model\Metadata\EntityDescriptor;
@@ -35,6 +35,7 @@ use Litesaml\Models\Messages\Attribute;
 use Litesaml\Models\Messages\AuthnRequest;
 use Litesaml\Models\Messages\LogoutRequest;
 use Litesaml\Models\Messages\LogoutResponse;
+use Litesaml\Models\Messages\NameId;
 use Litesaml\Support\MessageHandler;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -68,6 +69,10 @@ class IdentityProviderWrapper
                 ->setBinding($this->idp->slo->getBinding())
                 ->setLocation($this->idp->slo->location)
         );
+
+        foreach ($this->idp->nameIdFormats as $nameIdFormat) {
+            $idpSsoDescriptor->addNameIDFormat($nameIdFormat);
+        }
 
         $entityDescriptor = (new EntityDescriptor($this->idp->entityId))
             ->addItem($idpSsoDescriptor);
@@ -169,6 +174,7 @@ class IdentityProviderWrapper
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
             relayState: $message->getRelayState(),
+            nameIdPolicyFormat: $message->getNameIDPolicy()?->getFormat(),
         );
 
         $this->validateIfRequested($message, $validate, $issuer);
@@ -176,14 +182,14 @@ class IdentityProviderWrapper
         return $dto;
     }
 
-    public function sendLogoutRequest(Entity $recipient, string $nameId, ?string $relayState = null, ?string $sessionIndex = null): ResponseInterface
+    public function sendLogoutRequest(Entity $recipient, NameId $nameId, ?string $relayState = null, ?string $sessionIndex = null): ResponseInterface
     {
         $logoutRequest = (new LightSamlLogoutRequest())
             ->setID(Helper::generateID())
             ->setIssueInstant(new DateTime())
             ->setDestination($recipient->slo->location)
             ->setIssuer(new Issuer($this->idp->entityId))
-            ->setNameID(new NameID($nameId))
+            ->setNameID(new LightSamlNameID($nameId->value, $nameId->format))
             ->setSessionIndex($sessionIndex)
             ->setRelayState($relayState);
 
@@ -213,7 +219,7 @@ class IdentityProviderWrapper
         $dto = new LogoutRequest(
             id: $message->getID(),
             issuer: $message->getIssuer()->getValue(),
-            nameId: $message->getNameID()->getValue(),
+            nameId: new NameId($message->getNameID()->getValue(), $message->getNameID()->getFormat()),
             sessionIndex: $message->getSessionIndex(),
             relayState: $message->getRelayState(),
         );

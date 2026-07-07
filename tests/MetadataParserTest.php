@@ -24,6 +24,10 @@ class MetadataParserTest extends TestCase
         $this->assertEquals('https://idp.localhost/slo', $idp->slo->location);
         $this->assertEquals(BindingType::REDIRECT, $idp->slo->binding);
         $this->assertNotNull($idp->signing);
+        $this->assertEquals([
+            'urn:oasis:names:tc:SAML:2.0:nameid-format:persistent',
+            'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
+        ], $idp->nameIdFormats);
     }
 
     #[Test]
@@ -38,6 +42,10 @@ class MetadataParserTest extends TestCase
         $this->assertEquals('https://sp.localhost/slo', $sp->slo->location);
         $this->assertEquals(BindingType::REDIRECT, $sp->slo->binding);
         $this->assertNotNull($sp->signing);
+        $this->assertEquals([
+            'urn:oasis:names:tc:SAML:2.0:nameid-format:persistent',
+            'urn:oasis:names:tc:SAML:2.0:nameid-format:transient',
+        ], $sp->nameIdFormats);
     }
 
     #[Test]

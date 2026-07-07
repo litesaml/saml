@@ -14,7 +14,7 @@ readonly class AuthnResponse extends Message
         string $issuer,
         public array $attributes,
         public ?Status $status = null,
-        public ?string $nameId = null,
+        public ?NameId $nameId = null,
         public ?string $inResponseTo = null,
         public ?string $sessionIndex = null,
         ?string $relayState = null,
