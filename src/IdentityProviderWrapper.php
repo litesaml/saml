@@ -86,7 +86,7 @@ class IdentityProviderWrapper
     /**
      * @param Attribute[] $attributes
      */
-    public function sendAuthnResponse(Sp $recipient, array $attributes): ResponseInterface
+    public function sendAuthnResponse(Sp $recipient, array $attributes, ?NameId $nameId = null): ResponseInterface
     {
         $response = new LightSamlAuthnResponse();
 
@@ -114,6 +114,10 @@ class IdentityProviderWrapper
                 ->addSubjectConfirmation(
                     (new SubjectConfirmation())->setMethod(SamlConstants::CONFIRMATION_METHOD_BEARER)
                 );
+
+            if ($nameId !== null) {
+                $subject->setNameID(new LightSamlNameID($nameId->value, $nameId->format));
+            }
 
             $response->addAssertion(
                 (new Assertion())
@@ -143,6 +147,10 @@ class IdentityProviderWrapper
                 ->addSubjectConfirmation(
                     (new SubjectConfirmation())->setMethod(SamlConstants::CONFIRMATION_METHOD_BEARER)
                 );
+
+            if ($nameId !== null) {
+                $subject->setNameID(new LightSamlNameID($nameId->value, $nameId->format));
+            }
 
             $assertion = (new Assertion())
                 ->setId(Helper::generateID())
