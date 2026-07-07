@@ -91,6 +91,26 @@ class IdentityProviderWrapperTest extends TestCase
     }
 
     #[Test]
+    public function can_send_authn_response_with_name_id(): void
+    {
+        $attributes = [new Attribute(name: 'email', values: ['user@example.com'])];
+
+        $response = $this->makeIdpWrapper()->sendAuthnResponse(
+            $this->makeSp(),
+            $attributes,
+            new NameId('user@example.com', 'urn:oasis:names:tc:SAML:2.0:nameid-format:persistent'),
+        );
+
+        parse_str((string) parse_url($response->getHeaderLine('Location'), PHP_URL_QUERY), $params);
+        $authnResponse = $this->makeSpWrapper()->handleAuthnResponse(
+            $this->makeGetRequest('/acs', $params)
+        );
+
+        $this->assertEquals('user@example.com', $authnResponse->nameId?->value);
+        $this->assertEquals('urn:oasis:names:tc:SAML:2.0:nameid-format:persistent', $authnResponse->nameId?->format);
+    }
+
+    #[Test]
     public function can_send_logout_request(): void
     {
         $response = $this->makeIdpWrapper()->sendLogoutRequest($this->makeSp(), new NameId('user@example.com'));
