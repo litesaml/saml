@@ -2,6 +2,8 @@
 
 namespace Litesaml\Models\Messages;
 
+use Litesaml\Models\Messages\Context\NameId;
+
 readonly class LogoutRequest extends Message
 {
     public function __construct(

@@ -5,12 +5,16 @@ namespace Tests;
 use LightSaml\Binding\SamlPostResponse;
 use Litesaml\Enums\Status;
 use Litesaml\Exceptions\SamlException;
-use Litesaml\Models\Messages\Attribute;
 use Litesaml\Models\Messages\AuthnRequest;
 use Litesaml\Models\Messages\AuthnResponse;
+use Litesaml\Models\Messages\Context\Attribute;
+use Litesaml\Models\Messages\Context\ContextList;
+use Litesaml\Models\Messages\Context\NameId;
+use Litesaml\Models\Messages\Context\NameIdPolicyFormat;
+use Litesaml\Models\Messages\Context\RelayState;
+use Litesaml\Models\Messages\Context\Validate;
 use Litesaml\Models\Messages\LogoutRequest;
 use Litesaml\Models\Messages\LogoutResponse;
-use Litesaml\Models\Messages\NameId;
 use Litesaml\Support\MetadataParser;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -28,12 +32,12 @@ class ServiceProviderWrapperTest extends TestCase
     public function handle_authn_response_decrypts_encrypted_assertions(): void
     {
         $sp = $this->makeSpWithEncryption();
-        $attributes = [
+        $context = new ContextList(
             new Attribute(name: 'email', values: ['user@example.com']),
             new Attribute(name: 'roles', values: ['admin'], encrypted: true),
-        ];
+        );
 
-        $response = $this->makeIdpWrapper()->sendAuthnResponse($sp, $attributes);
+        $response = $this->makeIdpWrapper()->sendAuthnResponse($sp, $context);
         parse_str((string) parse_url($response->getHeaderLine('Location'), PHP_URL_QUERY), $params);
         $message = $this->makeSpWrapper($sp)->handleAuthnResponse($this->makeGetRequest('/acs', $params));
 
@@ -51,8 +55,8 @@ class ServiceProviderWrapperTest extends TestCase
         $this->expectExceptionMessage('No encryption certificate configured to decrypt assertion');
 
         $sp = $this->makeSpWithEncryption();
-        $attributes = [new Attribute(name: 'roles', values: ['admin'], encrypted: true)];
-        $response = $this->makeIdpWrapper()->sendAuthnResponse($sp, $attributes);
+        $context = new ContextList(new Attribute(name: 'roles', values: ['admin'], encrypted: true));
+        $response = $this->makeIdpWrapper()->sendAuthnResponse($sp, $context);
 
         parse_str((string) parse_url($response->getHeaderLine('Location'), PHP_URL_QUERY), $params);
         $this->makeSpWrapper()->handleAuthnResponse($this->makeGetRequest('/acs', $params));
@@ -104,7 +108,7 @@ class ServiceProviderWrapperTest extends TestCase
     {
         $response = $this->makeSpWrapper()->sendAuthnRequest(
             $this->makeIdp(),
-            nameIdPolicyFormat: 'urn:oasis:names:tc:SAML:2.0:nameid-format:persistent',
+            new ContextList(new NameIdPolicyFormat('urn:oasis:names:tc:SAML:2.0:nameid-format:persistent')),
         );
         parse_str((string) parse_url($response->getHeaderLine('Location'), PHP_URL_QUERY), $params);
 
@@ -116,7 +120,7 @@ class ServiceProviderWrapperTest extends TestCase
     #[Test]
     public function send_authn_request_includes_relay_state(): void
     {
-        $response = $this->makeSpWrapper()->sendAuthnRequest($this->makeIdp(), 'my-relay-state');
+        $response = $this->makeSpWrapper()->sendAuthnRequest($this->makeIdp(), new ContextList(new RelayState('my-relay-state')));
 
         $this->assertStringContainsString('RelayState=my-relay-state', $response->getHeaderLine('Location'));
     }
@@ -197,16 +201,31 @@ class ServiceProviderWrapperTest extends TestCase
     #[Test]
     public function can_send_logout_request(): void
     {
-        $response = $this->makeSpWrapper()->sendLogoutRequest($this->makeIdp(), new NameId('user@example.com'));
+        $response = $this->makeSpWrapper()->sendLogoutRequest(
+            $this->makeIdp(),
+            new ContextList(new NameId('user@example.com')),
+        );
 
         $this->assertEquals(302, $response->getStatusCode());
         $this->assertStringContainsString('https://idp.localhost/slo', $response->getHeaderLine('Location'));
     }
 
     #[Test]
+    public function send_logout_request_throws_when_name_id_missing(): void
+    {
+        $this->expectException(SamlException::class);
+        $this->expectExceptionMessage('A NameId is required to send a LogoutRequest');
+
+        $this->makeSpWrapper()->sendLogoutRequest($this->makeIdp());
+    }
+
+    #[Test]
     public function send_logout_request_includes_relay_state(): void
     {
-        $response = $this->makeSpWrapper()->sendLogoutRequest($this->makeIdp(), new NameId('user@example.com'), 'my-relay-state');
+        $response = $this->makeSpWrapper()->sendLogoutRequest(
+            $this->makeIdp(),
+            new ContextList(new NameId('user@example.com'), new RelayState('my-relay-state')),
+        );
 
         $this->assertStringContainsString('RelayState=my-relay-state', $response->getHeaderLine('Location'));
     }
@@ -240,7 +259,7 @@ class ServiceProviderWrapperTest extends TestCase
     {
         $response = $this->makeSpWrapper()->sendLogoutRequest(
             $this->makeIdp(),
-            new NameId('user@example.com', 'urn:oasis:names:tc:SAML:2.0:nameid-format:persistent'),
+            new ContextList(new NameId('user@example.com', 'urn:oasis:names:tc:SAML:2.0:nameid-format:persistent')),
         );
         parse_str((string) parse_url($response->getHeaderLine('Location'), PHP_URL_QUERY), $params);
 
@@ -263,36 +282,26 @@ class ServiceProviderWrapperTest extends TestCase
     }
 
     #[Test]
-    public function handle_authn_response_throws_when_validate_requires_issuer(): void
-    {
-        $this->expectException(SamlException::class);
-        $this->expectExceptionMessage('An issuer must be provided to validate the signature');
-
-        $request = $this->makePostRequest('/acs', ['SAMLResponse' => $this->fixture('authn_response', deflate: false)]);
-        $this->makeSpWrapper()->handleAuthnResponse($request, validate: true);
-    }
-
-    #[Test]
     public function handle_authn_response_throws_on_invalid_signature(): void
     {
         $this->expectException(SamlException::class);
         $this->expectExceptionMessage('Invalid signature');
 
         $request = $this->makePostRequest('/acs', ['SAMLResponse' => $this->fixture('authn_response', deflate: false)]);
-        $this->makeSpWrapper()->handleAuthnResponse($request, validate: true, issuer: $this->makeIdp());
+        $this->makeSpWrapper()->handleAuthnResponse($request, new ContextList(new Validate($this->makeIdp())));
     }
 
     #[Test]
     public function handle_authn_response_validates_signature_when_requested(): void
     {
         $idpWithSigning = $this->makeIdpWrapper($this->makeIdpWithSigning());
-        $attributes = [new Attribute(name: 'email', values: ['user@example.com'])];
+        $context = new ContextList(new Attribute(name: 'email', values: ['user@example.com']));
 
-        $response = $idpWithSigning->sendAuthnResponse($this->makeSp(), $attributes);
+        $response = $idpWithSigning->sendAuthnResponse($this->makeSp(), $context);
         parse_str((string) parse_url($response->getHeaderLine('Location'), PHP_URL_QUERY), $params);
         $request = $this->makeGetRequest('/acs', $params);
 
-        $message = $this->makeSpWrapper()->handleAuthnResponse($request, validate: true, issuer: $this->makeIdpWithSigning());
+        $message = $this->makeSpWrapper()->handleAuthnResponse($request, new ContextList(new Validate($this->makeIdpWithSigning())));
 
         $this->assertInstanceOf(AuthnResponse::class, $message);
     }
@@ -302,14 +311,14 @@ class ServiceProviderWrapperTest extends TestCase
     {
         $idpWithSigning = $this->makeIdpWrapper($this->makeIdpWithSigning());
         $sp = $this->makeSpWithPostAcs();
-        $attributes = [new Attribute(name: 'email', values: ['user@example.com'])];
+        $context = new ContextList(new Attribute(name: 'email', values: ['user@example.com']));
 
-        $response = $idpWithSigning->sendAuthnResponse($sp, $attributes);
+        $response = $idpWithSigning->sendAuthnResponse($sp, $context);
         $this->assertInstanceOf(SamlPostResponse::class, $response);
 
         $request = $this->makePostRequest('/acs', $response->getData());
 
-        $message = $this->makeSpWrapper($sp)->handleAuthnResponse($request, validate: true, issuer: $this->makeIdpWithSigning());
+        $message = $this->makeSpWrapper($sp)->handleAuthnResponse($request, new ContextList(new Validate($this->makeIdpWithSigning())));
 
         $this->assertInstanceOf(AuthnResponse::class, $message);
     }
@@ -322,9 +331,9 @@ class ServiceProviderWrapperTest extends TestCase
 
         $idpWithSigning = $this->makeIdpWrapper($this->makeIdpWithSigning());
         $sp = $this->makeSpWithPostAcs();
-        $attributes = [new Attribute(name: 'email', values: ['user@example.com'])];
+        $context = new ContextList(new Attribute(name: 'email', values: ['user@example.com']));
 
-        $response = $idpWithSigning->sendAuthnResponse($sp, $attributes);
+        $response = $idpWithSigning->sendAuthnResponse($sp, $context);
         $this->assertInstanceOf(SamlPostResponse::class, $response);
 
         $data = $response->getData();
@@ -333,7 +342,7 @@ class ServiceProviderWrapperTest extends TestCase
 
         $request = $this->makePostRequest('/acs', $data);
 
-        $this->makeSpWrapper($sp)->handleAuthnResponse($request, validate: true, issuer: $this->makeIdpWithSigning());
+        $this->makeSpWrapper($sp)->handleAuthnResponse($request, new ContextList(new Validate($this->makeIdpWithSigning())));
     }
 
     #[Test]
@@ -347,9 +356,9 @@ class ServiceProviderWrapperTest extends TestCase
 
         $idpWithSigning = $this->makeIdpWrapper($this->makeIdpWithSigning());
         $sp = $this->makeSpWithPostAcs();
-        $attributes = [new Attribute(name: 'email', values: ['user@example.com'])];
+        $context = new ContextList(new Attribute(name: 'email', values: ['user@example.com']));
 
-        $response = $idpWithSigning->sendAuthnResponse($sp, $attributes);
+        $response = $idpWithSigning->sendAuthnResponse($sp, $context);
         $this->assertInstanceOf(SamlPostResponse::class, $response);
 
         $data = $response->getData();
@@ -372,17 +381,7 @@ class ServiceProviderWrapperTest extends TestCase
         );
 
         $request = $this->makePostRequest('/acs', ['SAMLResponse' => base64_encode($wrapped)]);
-        $this->makeSpWrapper($sp)->handleAuthnResponse($request, validate: true, issuer: $this->makeIdpWithSigning());
-    }
-
-    #[Test]
-    public function handle_authn_request_throws_when_validate_requires_issuer(): void
-    {
-        $this->expectException(SamlException::class);
-        $this->expectExceptionMessage('An issuer must be provided to validate the signature');
-
-        $request = $this->makeGetRequest('/sso', ['SAMLRequest' => $this->fixture('authn_request')]);
-        $this->makeSpWrapper()->handleAuthnRequest($request, validate: true);
+        $this->makeSpWrapper($sp)->handleAuthnResponse($request, new ContextList(new Validate($this->makeIdpWithSigning())));
     }
 
     #[Test]
@@ -392,7 +391,7 @@ class ServiceProviderWrapperTest extends TestCase
         $this->expectExceptionMessage('Invalid signature');
 
         $request = $this->makeGetRequest('/sso', ['SAMLRequest' => $this->fixture('authn_request')]);
-        $this->makeSpWrapper()->handleAuthnRequest($request, validate: true, issuer: $this->makeSp());
+        $this->makeSpWrapper()->handleAuthnRequest($request, new ContextList(new Validate($this->makeSp())));
     }
 
     #[Test]
@@ -404,7 +403,7 @@ class ServiceProviderWrapperTest extends TestCase
         parse_str((string) parse_url($response->getHeaderLine('Location'), PHP_URL_QUERY), $params);
         $request = $this->makeGetRequest('/sso', $params);
 
-        $message = $this->makeSpWrapper()->handleAuthnRequest($request, validate: true, issuer: $this->makeSpWithSigning());
+        $message = $this->makeSpWrapper()->handleAuthnRequest($request, new ContextList(new Validate($this->makeSpWithSigning())));
 
         $this->assertInstanceOf(AuthnRequest::class, $message);
     }
@@ -428,23 +427,13 @@ class ServiceProviderWrapperTest extends TestCase
     }
 
     #[Test]
-    public function handle_logout_request_throws_when_validate_requires_issuer(): void
-    {
-        $this->expectException(SamlException::class);
-        $this->expectExceptionMessage('An issuer must be provided to validate the signature');
-
-        $request = $this->makeGetRequest('/slo', ['SAMLRequest' => $this->fixture('logout_request')]);
-        $this->makeSpWrapper()->handleLogoutRequest($request, validate: true);
-    }
-
-    #[Test]
     public function handle_logout_request_throws_on_invalid_signature(): void
     {
         $this->expectException(SamlException::class);
         $this->expectExceptionMessage('Invalid signature');
 
         $request = $this->makeGetRequest('/slo', ['SAMLRequest' => $this->fixture('logout_request')]);
-        $this->makeSpWrapper()->handleLogoutRequest($request, validate: true, issuer: $this->makeIdp());
+        $this->makeSpWrapper()->handleLogoutRequest($request, new ContextList(new Validate($this->makeIdp())));
     }
 
     #[Test]
@@ -452,23 +441,13 @@ class ServiceProviderWrapperTest extends TestCase
     {
         $idpWithSigning = $this->makeIdpWrapper($this->makeIdpWithSigning());
 
-        $response = $idpWithSigning->sendLogoutRequest($this->makeSp(), new NameId('user@example.com'));
+        $response = $idpWithSigning->sendLogoutRequest($this->makeSp(), new ContextList(new NameId('user@example.com')));
         parse_str((string) parse_url($response->getHeaderLine('Location'), PHP_URL_QUERY), $params);
         $request = $this->makeGetRequest('/slo', $params);
 
-        $message = $this->makeSpWrapper()->handleLogoutRequest($request, validate: true, issuer: $this->makeIdpWithSigning());
+        $message = $this->makeSpWrapper()->handleLogoutRequest($request, new ContextList(new Validate($this->makeIdpWithSigning())));
 
         $this->assertInstanceOf(LogoutRequest::class, $message);
-    }
-
-    #[Test]
-    public function handle_logout_response_throws_when_validate_requires_issuer(): void
-    {
-        $this->expectException(SamlException::class);
-        $this->expectExceptionMessage('An issuer must be provided to validate the signature');
-
-        $request = $this->makeGetRequest('/slo', ['SAMLResponse' => $this->fixture('logout_response')]);
-        $this->makeSpWrapper()->handleLogoutResponse($request, validate: true);
     }
 
     #[Test]
@@ -478,7 +457,7 @@ class ServiceProviderWrapperTest extends TestCase
         $this->expectExceptionMessage('Invalid signature');
 
         $request = $this->makeGetRequest('/slo', ['SAMLResponse' => $this->fixture('logout_response')]);
-        $this->makeSpWrapper()->handleLogoutResponse($request, validate: true, issuer: $this->makeIdp());
+        $this->makeSpWrapper()->handleLogoutResponse($request, new ContextList(new Validate($this->makeIdp())));
     }
 
     #[Test]
@@ -490,7 +469,7 @@ class ServiceProviderWrapperTest extends TestCase
         parse_str((string) parse_url($response->getHeaderLine('Location'), PHP_URL_QUERY), $params);
         $request = $this->makeGetRequest('/slo', $params);
 
-        $message = $this->makeSpWrapper()->handleLogoutResponse($request, validate: true, issuer: $this->makeIdpWithSigning());
+        $message = $this->makeSpWrapper()->handleLogoutResponse($request, new ContextList(new Validate($this->makeIdpWithSigning())));
 
         $this->assertInstanceOf(LogoutResponse::class, $message);
     }

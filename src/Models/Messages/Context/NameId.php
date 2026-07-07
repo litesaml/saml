@@ -1,8 +1,8 @@
 <?php
 
-namespace Litesaml\Models\Messages;
+namespace Litesaml\Models\Messages\Context;
 
-readonly class NameId
+readonly class NameId implements Context
 {
     public function __construct(
         public string $value,
