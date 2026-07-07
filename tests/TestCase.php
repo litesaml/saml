@@ -85,6 +85,17 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
         );
     }
 
+    /** @param string[] $nameIdFormats */
+    protected function makeSpWithNameIdFormats(array $nameIdFormats): Sp
+    {
+        return new Sp(
+            entityId: 'https://sp.localhost',
+            acs: new Endpoint('https://sp.localhost/acs', BindingType::REDIRECT),
+            slo: new Endpoint('https://sp.localhost/slo', BindingType::REDIRECT),
+            nameIdFormats: $nameIdFormats,
+        );
+    }
+
     protected function makeSpWithEncryption(): Sp
     {
         return new Sp(
@@ -108,6 +119,17 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
                 publicKey: new PublicKey(file_get_contents(__DIR__ . '/fixtures/signing_cert.pem')),
                 privateKey: new PrivateKey(file_get_contents(__DIR__ . '/fixtures/signing_key.pem')),
             ),
+        );
+    }
+
+    /** @param string[] $nameIdFormats */
+    protected function makeIdpWithNameIdFormats(array $nameIdFormats): Idp
+    {
+        return new Idp(
+            entityId: 'https://idp.localhost',
+            sso: new Endpoint('https://idp.localhost/sso', BindingType::REDIRECT),
+            slo: new Endpoint('https://idp.localhost/slo', BindingType::REDIRECT),
+            nameIdFormats: $nameIdFormats,
         );
     }
 
