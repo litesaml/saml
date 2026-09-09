@@ -4,6 +4,12 @@
 All notable changes to this project will be documented in this file.
 <!--- END HEADER -->
 
+## 5.0.0 (2026-09-09)
+
+### Breaking Changes
+
+* Require lightsaml 6.0 (xmlseclibs 4, RSA-OAEP key transport) ([#15](https://github.com/litesaml/saml/pull/15))
+
 ## 4.0.0 (2026-07-07)
 
 ### Breaking Changes
