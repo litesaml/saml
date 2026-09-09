@@ -3,6 +3,7 @@
 namespace Litesaml;
 
 use DateTime;
+use Exception;
 use LightSaml\Context\Model\DeserializationContext;
 use LightSaml\Context\Model\SerializationContext;
 use LightSaml\Credential\X509Certificate;
@@ -154,10 +155,16 @@ class ServiceProviderWrapper
                 throw new SamlException('No encryption certificate configured to decrypt assertion');
             }
 
-            $key = new XMLSecurityKey(XMLSecurityKey::RSA_1_5, ['type' => 'private']);
+            $key = new XMLSecurityKey(XMLSecurityKey::RSA_OAEP_MGF1P, ['type' => 'private']);
             $key->loadKey($this->sp->encryption->privateKey->toPem());
 
-            $assertion = $encryptedAssertion->decryptAssertion($key, new DeserializationContext());
+            // The key transport algorithm is taken from the incoming XML, not from $key. Since
+            // xmlseclibs 4 an RSA-1.5 encrypted key is rejected here by default (Bleichenbacher).
+            try {
+                $assertion = $encryptedAssertion->decryptAssertion($key, new DeserializationContext());
+            } catch (Exception $e) {
+                throw new SamlException('Failed to decrypt assertion: ' . $e->getMessage(), previous: $e);
+            }
 
             if ($nameId === null) {
                 $subjectNameId = $assertion->getSubject()?->getNameID();

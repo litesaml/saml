@@ -163,10 +163,12 @@ class IdentityProviderWrapper
                 ->setSubject($subject)
                 ->addItem($attributeStatement);
 
-            $encKey = new XMLSecurityKey(XMLSecurityKey::RSA_1_5, ['type' => 'public']);
+            $encKey = new XMLSecurityKey(XMLSecurityKey::RSA_OAEP_MGF1P, ['type' => 'public']);
             $encKey->loadKey($recipient->encryption->publicKey->toPem(), false, true);
 
-            $writer = new EncryptedAssertionWriter();
+            // AES-128-CBC data encryption, RSA-OAEP key transport. RSA-1.5 key transport is
+            // refused by xmlseclibs 4 on the decrypting side, so never emit it.
+            $writer = new EncryptedAssertionWriter(XMLSecurityKey::AES128_CBC, XMLSecurityKey::RSA_OAEP_MGF1P);
             $writer->encrypt($assertion, $encKey);
             $response->addEncryptedAssertion($writer);
         }

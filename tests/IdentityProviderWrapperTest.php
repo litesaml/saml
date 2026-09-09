@@ -207,6 +207,20 @@ class IdentityProviderWrapperTest extends TestCase
     }
 
     #[Test]
+    public function send_authn_response_encrypts_assertion_with_rsa_oaep_key_transport(): void
+    {
+        $context = new ContextList(new Attribute(name: 'roles', values: ['admin'], encrypted: true));
+
+        $response = $this->makeIdpWrapper()->sendAuthnResponse($this->makeSpWithEncryption(), $context);
+
+        parse_str((string) parse_url($response->getHeaderLine('Location'), PHP_URL_QUERY), $params);
+        $xml = (string) gzinflate((string) base64_decode($params['SAMLResponse'], true));
+
+        $this->assertStringContainsString('http://www.w3.org/2001/04/xmlenc#rsa-oaep-mgf1p', $xml);
+        $this->assertStringNotContainsString('xmlenc#rsa-1_5', $xml);
+    }
+
+    #[Test]
     public function send_authn_response_throws_when_encrypted_attribute_but_no_sp_encryption_cert(): void
     {
         $this->expectException(SamlException::class);
