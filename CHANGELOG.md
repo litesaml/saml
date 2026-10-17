@@ -4,6 +4,12 @@
 All notable changes to this project will be documented in this file.
 <!--- END HEADER -->
 
+## 5.0.1 (2026-10-17)
+
+### Bug Fixes
+
+* Require lightsaml 6.1 ([#16](https://github.com/litesaml/saml/pull/16))
+
 ## 5.0.0 (2026-09-09)
 
 ### Breaking Changes
